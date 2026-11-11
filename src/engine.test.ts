@@ -141,7 +141,7 @@ test("garden rules: tend reminder before the idle limit, weed check, winter tree
   assert.equal(t.find((x) => x.id.startsWith("tend:"))?.date, "2026-10-24");
   assert.ok(t.some((x) => x.id === "weeds:2026-10"));
   const jan = generateTasks(emptyData(), null, "2027-01-10", 7);
-  assert.ok(jan.some((x) => x.id === "prune:seed-lemon:2027" && /6 ft/.test(x.title)));
+  assert.ok(jan.some((x) => x.id === "prune:seed-lemon:2027" && /10 ft/.test(x.title)));
   const off = { ...emptyData(), meta: { ...emptyData().meta, settings: { ...emptyData().meta.settings, maxHeightFt: 0, weedPct: 0 } } };
   assert.ok(!generateTasks(off, null, "2027-01-10", 7).some((x) => x.id.startsWith("prune:") || x.id.startsWith("weeds:")));
 });

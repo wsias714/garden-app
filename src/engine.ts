@@ -192,7 +192,7 @@ export function generateTasks(d: GardenData, f: Forecast | null, today: string, 
   return out.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.id < b.id ? -1 : 1));
 }
 
-export const RULE_DEFAULTS = { idleDays: 30, maxHeightFt: 6, weedPct: 10, plotWIn: 120, plotHIn: 120 };
+export const RULE_DEFAULTS = { idleDays: 30, maxHeightFt: 10, weedPct: 10, plotWIn: 120, plotHIn: 120 };
 export const rules = (d: GardenData) => {
   const s = d.meta.settings;
   const pick = (v: number | undefined, def: number) => (v === undefined || Number.isNaN(v) ? def : v);
