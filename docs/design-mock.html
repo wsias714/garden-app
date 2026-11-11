@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Garden Journal: design mock (refined Field Journal)</title>
+<style>
+:root{--paper:#fbf7f0;--ink:#4a4041;--pencil:#8a7d7a;--bed:#f1e4da;--bedline:#8a6a66;--path:#efe8dc;--leaf:#8fa98a;--rose:#b5707a;--water:#7f9db0;--mint:#6fa57a;
+ --serif:'Cormorant Garamond','Cormorant','Playfair Display',Georgia,'Times New Roman',serif;--script:'Pinyon Script','Snell Roundhand','Apple Chancery',cursive;--body:'Nunito',system-ui,sans-serif}
+body{margin:0;background:#e6dfd3;font-family:var(--body);color:var(--ink)}
+.wrap{max-width:430px;margin:0 auto;padding:10px}
+.phone{background:var(--paper);border:1px solid #b9aa9d;border-radius:22px;padding:12px;box-shadow:0 2px 10px #0002;
+ background-image:radial-gradient(rgba(150,120,100,.07) 1px,transparent 1.2px);background-size:7px 7px}
+.top{display:flex;justify-content:space-between;align-items:center}
+h1{font:italic 600 32px var(--serif);margin:0;letter-spacing:.3px}
+h1 small{display:block;font:12px var(--body);letter-spacing:2px;text-transform:uppercase;color:var(--pencil)}
+.pill{font:600 12px var(--body);border:1px solid var(--bedline);border-radius:99px;padding:4px 10px;color:var(--bedline);background:#fff9}
+.gear{font-size:20px;margin-left:8px;color:var(--bedline)}
+svg{width:100%;height:auto;display:block;touch-action:none;margin-top:8px}
+.card{margin-top:8px;border:1px solid var(--bedline);border-radius:14px;padding:9px 12px;background:#fffc;min-height:66px}
+.card b{font:italic 600 22px var(--serif)}
+.card small{color:var(--pencil)}
+.tabs{display:flex;justify-content:space-around;margin-top:10px;border-top:1px solid #cdbfb4;padding-top:6px;font:italic 600 19px var(--serif)}
+.tabs span{padding:8px 8px;min-height:32px;color:var(--pencil)}.tabs .on{color:var(--rose);border-bottom:2px solid var(--rose)}
+.key{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;margin:8px 2px 0;color:var(--pencil)}
+.note{font-size:12px;color:#665;margin:8px 2px}
+</style></head><body>
+<div class="wrap">
+ <div class="phone">
+  <div class="top"><h1><small>Our plot</small>Garden Journal</h1><div><span class="pill">Synced 2m ago</span><span class="gear" aria-label="Settings">&#9881;</span></div></div>
+  <svg id="map" viewBox="0 0 360 380" aria-label="10 by 10 foot garden plot"></svg>
+  <div class="key"><span>&#9679; planter bed</span><span style="color:var(--water)">&#9472; drip line</span><span style="color:var(--mint)">&#9618; mint to clear</span><span>&#9679; tree</span></div>
+  <div class="card" id="card"><b>Tap anything on the map</b><div>Drag to move; it snaps to 6 inches.</div></div>
+  <div class="tabs"><span>Today</span><span class="on">Plot</span><span>Plants</span><span>Journal</span></div>
+ </div>
+ <p class="note">Mock only. Layout is a GUESS from the description (3 planter beds down the middle, lemon at the back, drip intact, mint to clear); real positions to be confirmed on site. Fonts here fall back to system serif and script; the app self-hosts Cormorant Garamond, a fine script for the title only, and Nunito for small text. Line wobble is a very light SVG displacement so edges look pencilled, not cartoonish.</p>
+</div>
+<script>
+const NS='http://www.w3.org/2000/svg',FT=34,OX=10,OY=18;
+const svg=document.getElementById('map'),card=document.getElementById('card');
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+// items in feet. kind: tree | plant | bed | mint
+const beds=[{id:'b1',x:3.6,y:2.4,w:2.8,h:2,l:'bed 1'},{id:'b2',x:3.6,y:4.9,w:2.8,h:2,l:'bed 2'},{id:'b3',x:3.6,y:7.4,w:2.8,h:2,l:'bed 3'}];
+const mint=[{x:.4,y:5.6,w:2.6,h:3.8},{x:7,y:6.4,w:2.6,h:3}];
+const items=[
+ {n:'Lemon tree',d:'Confirm variety (Eureka? Meyer?). Prune after harvest; citrus feed Feb, May, Aug.',x:5,y:.9,r:.8,k:'tree'},
+ {n:'Tree 2 (to confirm)',d:'Unknown. Confirm on site, then add a photo.',x:8.7,y:1.2,r:.6,k:'tree',planned:1},
+ {n:'Lettuce',d:'Planned: sow in bed 1, Nov-Feb optimal. Harvest ~7-8 weeks.',x:4.3,y:3.4,r:.45,k:'leaf',planned:1},
+ {n:'Kale',d:'Planned: bed 1. Transplant now, harvest from ~Jan.',x:5.6,y:3.4,r:.7,k:'leaf',planned:1},
+ {n:'Peas',d:'Planned: bed 2 with a trellis. Sow Nov, harvest Feb.',x:4.3,y:5.9,r:.55,k:'vine',planned:1},
+ {n:'Carrots',d:'Planned: bed 2. Sow Nov, harvest ~Jan.',x:5.6,y:5.9,r:.4,k:'root',planned:1},
+];
+let sel=null,drag=null;
+function el(t,a,p){const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);(p||svg).appendChild(e);return e}
+function draw(){
+ svg.innerHTML='';const ink=css('--ink'),bl=css('--bedline'),lw=1.5;
+ const f=el('filter',{id:'w'},el('defs',{}));
+ el('feTurbulence',{type:'fractalNoise',baseFrequency:.04,numOctaves:2,seed:5,result:'n'},f);
+ el('feDisplacementMap',{in:'SourceGraphic',in2:'n',scale:1.6},f);
+ const gp=el('g',{filter:'url(#w)'});
+ el('rect',{x:OX,y:OY,width:10*FT,height:10*FT,fill:css('--path'),stroke:ink,'stroke-width':lw,rx:3},gp);
+ for(let i=1;i<10;i++){el('line',{x1:OX+i*FT,y1:OY,x2:OX+i*FT,y2:OY+10*FT,stroke:css('--pencil'),'stroke-opacity':.16,'stroke-dasharray':'1 5'},gp);
+  el('line',{x1:OX,y1:OY+i*FT,x2:OX+10*FT,y2:OY+i*FT,stroke:css('--pencil'),'stroke-opacity':.16,'stroke-dasharray':'1 5'},gp)}
+ // mint patches: fine hatching
+ mint.forEach(m=>{const x=OX+m.x*FT,y=OY+m.y*FT,w=m.w*FT,h=m.h*FT;
+  el('rect',{x,y,width:w,height:h,fill:css('--mint'),'fill-opacity':.12,stroke:css('--mint'),'stroke-width':1.2,'stroke-dasharray':'4 3',rx:8},gp);
+  for(let i=8;i<w+h;i+=9){const x1=x+Math.min(i,w),y1=y+Math.max(0,i-w),x2=x+Math.max(0,i-h),y2=y+Math.min(i,h);el('line',{x1,y1,x2,y2,stroke:css('--mint'),'stroke-opacity':.5},gp)}
+  const t=el('text',{x:x+w/2,y:y+h/2+4,'text-anchor':'middle','font-size':15,'font-style':'italic','font-family':css('--serif'),fill:css('--mint')},gp);t.textContent='mint'});
+ // drip line: main along left of beds, branches into each bed
+ const dl=el('g',{stroke:css('--water'),'stroke-width':1.6,fill:'none','stroke-dasharray':'6 3'},gp);
+ el('path',{d:`M${OX+3.2*FT} ${OY+10*FT} L${OX+3.2*FT} ${OY+1.4*FT}`},dl);
+ beds.forEach(b=>el('path',{d:`M${OX+3.2*FT} ${OY+(b.y+b.h/2)*FT} L${OX+(b.x+b.w-.3)*FT} ${OY+(b.y+b.h/2)*FT}`},dl));
+ el('circle',{cx:OX+3.2*FT,cy:OY+10*FT,r:5,fill:css('--water'),stroke:'none'},gp);
+ beds.forEach(b=>{const g=el('g',{'data-bed':b.id,style:'cursor:pointer'});const gg=el('g',{filter:'url(#w)'},g);
+  el('rect',{x:OX+b.x*FT,y:OY+b.y*FT,width:b.w*FT,height:b.h*FT,fill:css('--bed'),stroke:sel===b.id?css('--rose'):bl,'stroke-width':sel===b.id?2.4:lw,rx:6},gg);
+  const t=el('text',{x:OX+(b.x+b.w)*FT-6,y:OY+(b.y+b.h)*FT-6,'text-anchor':'end','font-size':14,'font-style':'italic','font-family':css('--serif'),fill:bl},g);t.textContent=b.l});
+ // compass
+ const c=el('g',{transform:`translate(${OX+10*FT-20},${OY+24})`,stroke:ink,'stroke-width':1.2,fill:'none'},gp);
+ el('path',{d:'M0 13 L0 -12 M-4 -7 L0 -12 L4 -7'},c);const nt=el('text',{x:-4,y:-16,'font-size':13,fill:ink,stroke:'none','font-family':css('--serif'),'font-style':'italic'},c);nt.textContent='N';
+ items.forEach((p,i)=>{const cx=OX+p.x*FT,cy=OY+p.y*FT,R=p.r*FT;
+  const gr=el('g',{'data-i':i,style:'cursor:grab'});const gw=el('g',{filter:'url(#w)'},gr);
+  el('circle',{cx,cy,r:R+(sel===i?4:0),fill:p.planned?'none':css('--leaf'),'fill-opacity':.3,stroke:sel===i?css('--rose'):ink,'stroke-width':lw,'stroke-dasharray':p.planned?'4 3':'0'},gw);
+  const s=`stroke="${ink}" stroke-width="1.2" fill="none" stroke-linecap="round"`;
+  const d={tree:`<path d="M0 12 L0 0 M0 0 C-14 -2 -14 -16 0 -14 C14 -16 14 -2 0 0 M-4 -8 L0 -4 L5 -9" ${s}/>`,
+   leaf:`<path d="M0 8 C-12 0 -8 -12 0 -14 C8 -12 12 0 0 8 M0 8 L0 -8" ${s}/>`,
+   root:`<path d="M-6 -8 L0 -2 L6 -8 M0 -2 L0 10 M-3 4 L0 10 L3 4" ${s}/>`,
+   vine:`<path d="M-8 10 C-10 -2 6 2 2 -8 C0 -12 -6 -10 -4 -6 M2 -8 L8 -12" ${s}/>`}[p.k];
+  const ic=el('g',{transform:`translate(${cx},${cy}) scale(${Math.min(1.5,Math.max(.8,p.r*1.3))})`},gw);ic.innerHTML=d;
+  el('circle',{cx,cy,r:Math.max(R,22),fill:'transparent'},gr);
+  const tx=el('text',{x:cx,y:cy+R+13,'text-anchor':'middle','font-size':13,'font-style':'italic','font-weight':600,fill:ink,'font-family':css('--serif')},gr);tx.textContent=p.n})}
+function show(h,d){card.innerHTML=`<b>${h}</b><div>${d}</div>`}
+svg.addEventListener('pointerdown',e=>{const gi=e.target.closest('[data-i]'),gb=e.target.closest('[data-bed]');
+ if(gi){drag=+gi.dataset.i;sel=drag;svg.setPointerCapture(e.pointerId);show(items[drag].n,items[drag].d)}
+ else if(gb){sel=gb.dataset.bed;show('Planter bed '+sel.slice(1),'Drip: one line per bed (to confirm). Tap + to add a plant.')}draw()});
+svg.addEventListener('pointermove',e=>{if(drag==null)return;const pt=svg.createSVGPoint();pt.x=e.clientX;pt.y=e.clientY;const q=pt.matrixTransform(svg.getScreenCTM().inverse());
+ const sn=v=>Math.round(v*2)/2,p=items[drag];p.x=Math.min(9.5,Math.max(.5,sn((q.x-OX)/FT)));p.y=Math.min(9.5,Math.max(.5,sn((q.y-OY)/FT)));draw()});
+svg.addEventListener('pointerup',()=>{drag=null});
+draw();
+</script></body></html>
