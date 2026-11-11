@@ -7,11 +7,12 @@ import { DEFAULT_LAT, DEFAULT_LON } from "./config.ts";
 const item = (id: string, kind: MapItem["kind"], label: string, x: number, y: number, w: number, h: number): MapItem => ({ id, kind, label, x, y, w, h, updated: 0 });
 
 export const SEED_ITEMS: MapItem[] = [
-  item("seed-bed1", "bed", "Bed 1", 6, 36, 30, 66),
-  item("seed-bed2", "bed", "Bed 2", 56, 34, 58, 22),
-  item("seed-bed3", "bed", "Bed 3", 84, 84, 30, 30),
+  item("seed-bed1", "bed", "Left bed", 6, 32, 24, 70),
+  item("seed-bed2", "bed", "Right bed", 90, 32, 24, 70),
+  item("seed-bed3", "bed", "Middle back", 42, 32, 36, 22),
+  item("seed-bed4", "bed", "Middle front", 42, 80, 36, 22),
   item("seed-lemon", "tree", "Lemon", 28, 2, 26, 26),
-  item("seed-tree2", "tree", "Tree? (confirm)", 62, 2, 22, 22),
+  item("seed-tree2", "tree", "Tree? (confirm)", 66, 2, 22, 22),
 ];
 
 let n = 0;

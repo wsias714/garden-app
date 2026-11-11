@@ -4,6 +4,8 @@ import { disconnect, finishAuthWithCode, getAppKey, isConnected, setAppKey, star
 import type { Sync } from "../sync/useSync.ts";
 import { openFeedback } from "../feedback.ts";
 import type { Store } from "../store.ts";
+import { SEED_ITEMS } from "../seed.ts";
+import { withTomb } from "../sync/merge.ts";
 import { Sheet } from "../ui.tsx";
 
 export function SettingsSheet({ store, sync, onClose }: { store: Store; sync: Sync; onClose: () => void }) {
@@ -80,6 +82,16 @@ export function SettingsSheet({ store, sync, onClose }: { store: Store; sync: Sy
         <input className="field" inputMode="decimal" value={s.lat} onChange={(e) => { const v = round(e.target.value); if (!Number.isNaN(v)) store.setSettings({ lat: v }); }} />
         <input className="field" inputMode="decimal" value={s.lon} onChange={(e) => { const v = round(e.target.value); if (!Number.isNaN(v)) store.setSettings({ lon: v }); }} />
       </div>
+
+      <h3>Map</h3>
+      <button className="btn" onClick={() => { if (window.confirm("Replace the map's beds and trees with the starter layout? Plants stay.")) {
+        const now = Date.now();
+        store.apply((cur) => {
+          let meta = cur.meta;
+          for (const it of cur.items) if (!SEED_ITEMS.some((x) => x.id === it.id)) meta = withTomb(meta, "items", it.id, now);
+          return { ...cur, items: SEED_ITEMS.map((x) => ({ ...x, updated: now })), meta };
+        });
+      } }}>Reset map to starter layout</button>
 
       <h3>Help</h3>
       <div className="btnrow">
