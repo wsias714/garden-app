@@ -201,16 +201,22 @@ export function weatherAlerts(d: GardenData, f: Forecast | null, today: string):
       out.push({ id: `frost:${day.date}`, date: day.date, kind: "frost", title: `${when}: low ${cToF(day.tMinC)}°F`,
         detail: `Possible frost on the ground.${who.length ? ` Cover ${list(who)} overnight; water the day before (moist soil holds heat).` : " Nothing tender is planted."}` });
     }
-    if (rainy(day)) {
-      const who = names((p) => climateOf(p).rainSensitive);
-      out.push({ id: `rain:${day.date}`, date: day.date, kind: "rain", title: `${when}: rain about ${mmToIn(day.rainMm)} in (${day.rainProb}%)`,
-        detail: `${day.rainMm >= SOAK_MM ? "A good soak: skip watering for a few days" : "Skip the next watering"}${anyDrip ? " and pause the drip timer" : ""}.${who.length ? ` Rain-sensitive: ${list(who)} (pick ripe fruit first, keep leaves dry after).` : ""}` });
-    }
     if (day.rhMin <= 20 && day.gustKmh >= 40) {
       const who = names((p) => climateOf(p).windTender);
       out.push({ id: `wind:${day.date}`, date: day.date, kind: "wind", title: `${when}: dry gusty wind`,
         detail: `Santa Ana-type conditions (humidity ${day.rhMin}%, gusts ${Math.round(day.gustKmh / 1.609)} mph): soil and seedlings dry fast. Check the soil daily${who.length ? `; water ${list(who)} first` : ""}.` });
     }
+  }
+  // Rain: one alert for the week, not one per wet day.
+  const wet = f.days.filter((x) => x.date >= today && rainy(x));
+  if (wet.length) {
+    const total = wet.reduce((s, x) => s + x.rainMm, 0);
+    const big = Math.max(...wet.map((x) => x.rainMm));
+    const dayName = (x: ForecastDay) => (x.date === today ? "today" : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][parse(x.date).getDay()]);
+    const sensitive = plants.filter((p) => climateOf(p).rainSensitive);
+    const care = [...new Set(sensitive.map((p) => climateOf(p).rainCare))];
+    out.push({ id: `rain:${wet[0].date}`, date: wet[0].date, kind: "rain", title: `Rain ${wet.map(dayName).join(", ")}: about ${mmToIn(total)} in`,
+      detail: `${big >= SOAK_MM ? "A good soak: skip watering for a few days" : "Skip watering on and right after the wet days"}${anyDrip ? " and pause the drip timer" : ""}.${sensitive.length ? ` Rain-sensitive: ${list(sensitive.map((p) => p.name))}. ${care.length === 1 ? care[0] : "See each plant's rain note."}` : ""}` });
   }
   const et = f.days.reduce((s, x) => s + x.et0Mm, 0);
   const rain = f.days.reduce((s, x) => s + x.rainMm, 0);

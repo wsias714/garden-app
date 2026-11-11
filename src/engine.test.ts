@@ -76,6 +76,7 @@ test("weather alerts: heat names tender plants, frost names frost-tender, rain, 
   assert.match(by("heat").detail, /Lettuce/);
   assert.match(by("frost").detail, /Tomato/);
   assert.match(by("rain").detail, /soak/);
+  assert.equal(a.filter((x) => x.kind === "rain").length, 1);
   assert.match(by("wind").detail, /Santa Ana/);
   assert.ok(by("week"));
 });

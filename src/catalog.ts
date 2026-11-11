@@ -69,7 +69,9 @@ function climateFor(key: string, kind: CropKind): Climate {
           ? "Above about 90 F blossoms drop: water deeply the evening before, mulch, light shade in the afternoon."
           : "Water deeply before a heat wave and keep the soil mulched.",
     rainCare: rainSensitive
-      ? "Heavy rain splits fruit or rots leaves: skip watering, avoid wetting leaves, improve air flow, pick ripe fruit before the storm."
+      ? kind === "veg" && !WARM_TENDER.includes(key) || kind === "herb" || kind === "flower"
+        ? "Soggy soil rots roots and leaves: skip watering, keep leaves dry, make sure the bed drains."
+        : "Heavy rain splits fruit and spreads mildew: pick ripe fruit before the storm, skip watering, keep leaves dry."
       : "After 1/4 in or more of rain, skip the next watering and check the soil 2 in down.",
     season: cool
       ? "Cool-season: best sown Sep to Mar in Irvine; summer heat ends it."
