@@ -16,7 +16,19 @@ export interface Crop {
   perennial: boolean;
   succession: number; // re-sow every N days while in season, 0 = no
   tip: string;
+  climate: Climate;
   verified: false;
+}
+
+/** How a crop copes with Irvine's weather. ASSUMPTIONS from general extension guidance, to verify. */
+export interface Climate {
+  heat: "tender" | "ok" | "tough"; // tender: bolts, wilts or drops blossoms above about 85-90 F
+  frostTender: boolean; // damaged near 32-35 F (rare in coastal Irvine, possible Dec-Feb)
+  rainSensitive: boolean; // splits, rots or gets fungal disease after heavy rain or overhead water
+  windTender: boolean; // seedlings, large leaves or shallow roots dry out in hot dry Santa Ana winds
+  heatCare: string;
+  rainCare: string;
+  season: string; // Irvine seasonal pattern note
 }
 
 const R = (a: number, b: number) => {
@@ -29,7 +41,44 @@ const R = (a: number, b: number) => {
 };
 
 function c(key: string, name: string, kind: CropKind, opt: number[], ok: number[], days: [number, number] | null, water: number, spacingIn: number, tip: string, succession = 0): Crop {
-  return { key, name, kind, opt, ok, days, water, spacingIn, perennial: days === null, succession, tip, verified: false };
+  return { key, name, kind, opt, ok, days, water, spacingIn, perennial: days === null, succession, tip, climate: climateFor(key, kind), verified: false };
+}
+
+const COOL = ["lettuce", "spinach", "cilantro", "peas", "radish", "kale", "chard", "broccoli", "cabbage", "cauliflower", "carrots", "beets", "parsley"];
+const WARM_TENDER = ["tomato", "pepper", "zucchini", "cucumber", "basil", "bushbean", "passionfruit"];
+const TOUGH = ["rosemary", "thyme", "oregano", "sage", "lavender", "salvia", "yarrow", "artichoke", "grape", "persimmon", "olallieberry", "asparagus", "walkingonion", "garlicchive", "echinacea"];
+const RAIN_SENSITIVE = ["tomato", "cucumber", "zucchini", "basil", "strawberry", "lettuce", "rosemary", "thyme", "lavender", "sage", "grape", "olallieberry"];
+
+function climateFor(key: string, kind: CropKind): Climate {
+  const cool = COOL.includes(key);
+  const tough = TOUGH.includes(key) || kind === "flower";
+  const heat: Climate["heat"] = cool ? "tender" : tough ? "tough" : "ok";
+  const frostTender = WARM_TENDER.includes(key) || key === "lemon";
+  const rainSensitive = RAIN_SENSITIVE.includes(key);
+  const windTender = cool || ["cucumber", "zucchini", "basil", "strawberry", "lemon", "passionfruit"].includes(key);
+  return {
+    heat,
+    frostTender,
+    rainSensitive,
+    windTender,
+    heatCare: cool
+      ? "Above about 85 F it bolts or turns bitter: water deeply early morning, add shade cloth on hot afternoons, keep mulched."
+      : tough
+        ? "Handles Irvine heat; in a heat wave give one deep soak rather than many sips."
+        : WARM_TENDER.includes(key)
+          ? "Above about 90 F blossoms drop: water deeply the evening before, mulch, light shade in the afternoon."
+          : "Water deeply before a heat wave and keep the soil mulched.",
+    rainCare: rainSensitive
+      ? "Heavy rain splits fruit or rots leaves: skip watering, avoid wetting leaves, improve air flow, pick ripe fruit before the storm."
+      : "After 1/4 in or more of rain, skip the next watering and check the soil 2 in down.",
+    season: cool
+      ? "Cool-season: best sown Sep to Mar in Irvine; summer heat ends it."
+      : WARM_TENDER.includes(key)
+        ? "Warm-season: plant Mar to Jul once nights stay mild; May Gray and June Gloom slow it, Aug-Sep heat stresses it."
+        : kind === "fruit" || kind === "berry"
+          ? "Perennial: plant bare-root Dec to Feb; deep water through the dry summer and before Santa Ana winds (Sep to Jan)."
+          : "Perennial: plant Oct to Mar so winter rain establishes roots; water less in winter, deeply in summer.",
+  };
 }
 
 export const CATALOG: Crop[] = [

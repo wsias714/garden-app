@@ -1,27 +1,34 @@
 import { useEffect, useMemo, useState } from "react";
 import { MONTHS, pretty, today as todayStr } from "../dates.ts";
-import { generateTasks, sowNow, waterNudge } from "../engine.ts";
-import type { Task, Weather } from "../engine.ts";
+import { cToF, generateTasks, mmToIn, sowNow, weatherAlerts } from "../engine.ts";
+import type { Forecast, Task } from "../engine.ts";
 import { PROJECTS } from "../seed.ts";
 import type { Store } from "../store.ts";
-import { fetchWeather } from "../weather.ts";
+import { fetchForecast } from "../weather.ts";
 import { Glyph, newPlant } from "../ui.tsx";
 
 export function TodayTab({ store }: { store: Store }) {
   const { data } = store;
   const { lat, lon } = data.meta.settings;
-  const [wx, setWx] = useState<Weather | null>(null);
+  const [wx, setWx] = useState<Forecast | null>(null);
+  const [wxState, setWxState] = useState<"loading" | "ok" | "none">("loading");
   const [openProj, setOpenProj] = useState("");
   const today = todayStr();
   const month = new Date().getMonth() + 1;
 
   useEffect(() => {
     let live = true;
-    void fetchWeather(lat, lon).then((w) => live && setWx(w));
+    setWxState("loading");
+    void fetchForecast(lat, lon).then((w) => {
+      if (!live) return;
+      setWx(w);
+      setWxState(w ? "ok" : "none");
+    });
     return () => { live = false; };
   }, [lat, lon]);
 
   const tasks = useMemo(() => generateTasks(data, wx, today, 7), [data, wx, today]);
+  const alerts = useMemo(() => weatherAlerts(data, wx, today), [data, wx, today]);
   const groups = {
     overdue: tasks.filter((t) => !t.done && t.overdue),
     today: tasks.filter((t) => t.done || (!t.overdue && t.date <= today)),
@@ -46,11 +53,10 @@ export function TodayTab({ store }: { store: Store }) {
         <div>{t.title}</div>
         {(t.nudge || t.note) && <div className="muted small">{t.nudge || t.note}</div>}
       </div>
-      <span className="muted small">{t.overdue ? "overdue" : pretty(t.date)}</span>
+      <span className="muted small">{t.overdue ? "overdue" : t.monthly && !t.done ? "this month" : pretty(t.date)}</span>
     </div>
   );
 
-  const nudge = waterNudge(wx);
   const nextSteps = Object.keys(PROJECTS).map((k) => ({ key: k, steps: data.steps.filter((s) => s.project === k).sort((a, b) => a.order - b.order) }));
 
   return (
@@ -58,13 +64,33 @@ export function TodayTab({ store }: { store: Store }) {
       <h1 className="title">Today</h1>
       <p className="date">{new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</p>
       <div className="card wx">
-        {wx ? (
-          <>
-            <div>{wx.rainSoonMm >= 0.5 ? `Rain ahead: about ${(wx.rainSoonMm / 25.4).toFixed(2)} in` : "No rain in the next two days"} · high {Math.round(wx.maxTempC * 1.8 + 32)}°F</div>
-            {nudge && <div className="muted small">{nudge}</div>}
-          </>
-        ) : <div className="muted">Weather unavailable (offline?). Watering reminders still work.</div>}
+        {wxState === "loading" && <div className="muted">Loading the forecast…</div>}
+        {wxState === "none" && <div className="muted">No forecast right now (offline?). Watering reminders still work.</div>}
+        {wx && (
+          <div className="outlook">
+            {wx.days.map((d) => (
+              <div key={d.date} className={"wxday" + (d.rainMm >= 2.5 ? " wet" : d.tMaxC >= 32 ? " hot" : "")}>
+                <span className="small">{d.date === today ? "Today" : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][new Date(d.date + "T12:00").getDay()]}</span>
+                <span className="wxicon" aria-hidden>{d.rainMm >= 2.5 ? "☂" : d.tMaxC >= 32 ? "☀" : d.rainProb >= 40 ? "☁" : "○"}</span>
+                <b>{cToF(d.tMaxC)}°</b>
+                <span className="muted small">{cToF(d.tMinC)}°</span>
+                <span className="muted small">{d.rainMm >= 0.5 ? `${mmToIn(d.rainMm)}"` : ""}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
+      {alerts.length > 0 && (
+        <section>
+          <h3>Weather alerts</h3>
+          {alerts.map((a) => (
+            <div key={a.id} className={"alert " + a.kind}>
+              <b>{a.title}</b>
+              <div className="small">{a.detail}</div>
+            </div>
+          ))}
+        </section>
+      )}
 
       {groups.overdue.length > 0 && <section><h3>Overdue</h3>{groups.overdue.map((t) => <Row key={t.id} t={t} />)}</section>}
       <section>

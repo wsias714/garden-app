@@ -86,3 +86,14 @@ h2 { margin: 0; font-size: 26px; }
 .plantglyph { color: var(--ink); pointer-events: none; }
 .north { font-family: "Cormorant Garamond", serif; font-style: italic; font-size: 7px; fill: var(--rose); }
 .sel > rect, .sel > circle, .sel > line:first-child { stroke-width: 1.8; }
+
+.outlook { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; }
+.wxday { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 4px 0; border-radius: 8px; }
+.wxday.wet { background: rgba(127,157,176,0.15); }
+.wxday.hot { background: rgba(181,112,122,0.12); }
+.wxicon { font-size: 18px; color: var(--slate); }
+.wxday.hot .wxicon { color: var(--rose); }
+.alert { border-left: 3px solid var(--sage); padding: 6px 10px; margin: 8px 0; background: rgba(255,255,255,0.55); border-radius: 0 10px 10px 0; }
+.alert.heat { border-color: var(--rose); } .alert.rain { border-color: var(--slate); } .alert.frost { border-color: #8a8fc0; } .alert.wind { border-color: #c9a25e; }
+.climate { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+.climate .lbl { margin: 6px 0; }

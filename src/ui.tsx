@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { CATALOG, cropByKey } from "./catalog.ts";
 import type { Crop, CropKind } from "./catalog.ts";
 import { MONTHS, today } from "./dates.ts";
+import { climateOf, waterInterval } from "./engine.ts";
 import type { Store } from "./store.ts";
 import { uid } from "./store.ts";
 import type { MapItem, Plant, PlantStatus } from "./sync/types.ts";
@@ -71,6 +72,8 @@ const STATUSES: PlantStatus[] = ["planned", "growing", "harvesting", "done"];
 
 export function PlantSheet({ plant, store, onClose }: { plant: Plant; store: Store; onClose: () => void }) {
   const crop = cropByKey(plant.cropKey);
+  const clim = climateOf(plant);
+  const defaults = climateOf({ ...plant, heatPlan: "", rainPlan: "", seasonNotes: "" });
   const [qty, setQty] = useState("");
   const set = (patch: Partial<Plant>) => store.upsert("plants", { ...plant, ...patch });
   const log = (kind: "water" | "harvest", text: string, n = 0, unit = "") =>
@@ -89,6 +92,39 @@ export function PlantSheet({ plant, store, onClose }: { plant: Plant; store: Sto
       </label>
       {!plant.planted && <button className="btn" onClick={() => set({ planted: today(), status: "growing" })}>Planted today</button>}
       <label className="lbl">Notes<textarea className="field" rows={3} value={plant.notes} onChange={(e) => set({ notes: e.target.value })} /></label>
+
+      <h3>Weather care</h3>
+      <p className="muted small">Blank means the app's default for this crop (shown in grey). These drive the watering schedule and the heat, rain, frost and wind alerts.</p>
+      <div className="climate">
+        <label className="lbl">Sun
+          <select className="field" value={plant.sun ?? "full"} onChange={(e) => set({ sun: e.target.value as Plant["sun"] })}>
+            <option value="full">Full sun</option><option value="part">Part shade</option><option value="shade">Shade</option>
+          </select>
+        </label>
+        <label className="lbl">Water every (days)
+          <input className="field" inputMode="numeric" placeholder={`auto: ${waterInterval({ ...plant, waterEveryDays: 0 }, crop, new Date().getMonth() + 1)}`}
+            value={plant.waterEveryDays || ""} onChange={(e) => set({ waterEveryDays: Math.max(0, parseInt(e.target.value) || 0) })} />
+        </label>
+        <label className="lbl">Heat
+          <select className="field" value={plant.heatTolerance ?? ""} onChange={(e) => set({ heatTolerance: e.target.value as Plant["heatTolerance"] })}>
+            <option value="">Default ({clim.heat})</option><option value="tender">Tender (suffers above 85°F)</option><option value="ok">OK</option><option value="tough">Tough</option>
+          </select>
+        </label>
+        <label className="lbl">Frost
+          <select className="field" value={plant.frostTender ?? ""} onChange={(e) => set({ frostTender: e.target.value as Plant["frostTender"] })}>
+            <option value="">Default ({clim.frostTender ? "tender" : "hardy"})</option><option value="yes">Tender</option><option value="no">Hardy</option>
+          </select>
+        </label>
+        <label className="lbl">Heavy rain
+          <select className="field" value={plant.rainSensitive ?? ""} onChange={(e) => set({ rainSensitive: e.target.value as Plant["rainSensitive"] })}>
+            <option value="">Default ({clim.rainSensitive ? "sensitive" : "fine"})</option><option value="yes">Sensitive</option><option value="no">Fine</option>
+          </select>
+        </label>
+        <label className="check-row lbl"><input type="checkbox" checked={!!plant.onDrip} onChange={(e) => set({ onDrip: e.target.checked })} /> On the drip timer</label>
+      </div>
+      <label className="lbl">In a heat wave<textarea className="field" rows={2} placeholder={defaults.heatCare} value={plant.heatPlan ?? ""} onChange={(e) => set({ heatPlan: e.target.value })} /></label>
+      <label className="lbl">When it rains<textarea className="field" rows={2} placeholder={defaults.rainCare} value={plant.rainPlan ?? ""} onChange={(e) => set({ rainPlan: e.target.value })} /></label>
+      <label className="lbl">Through the seasons<textarea className="field" rows={2} placeholder={defaults.season} value={plant.seasonNotes ?? ""} onChange={(e) => set({ seasonNotes: e.target.value })} /></label>
       <div className="btnrow">
         <button className="btn" onClick={() => { log("water", "Watered"); onClose(); }}>Watered today</button>
       </div>

@@ -24,6 +24,16 @@ export interface Plant {
   planted: string; // YYYY-MM-DD or ""
   status: PlantStatus;
   notes: string;
+  /* Climate care (optional so older saved plants still load). Empty means "use the catalog default". */
+  waterEveryDays?: number; // 0 or missing = automatic from catalog and season
+  onDrip?: boolean; // watered by the drip timer: no manual water reminders, timer alerts instead
+  sun?: "full" | "part" | "shade";
+  heatTolerance?: "" | "tender" | "ok" | "tough";
+  frostTender?: "" | "yes" | "no";
+  rainSensitive?: "" | "yes" | "no";
+  heatPlan?: string;
+  rainPlan?: string;
+  seasonNotes?: string;
   updated: number;
 }
 

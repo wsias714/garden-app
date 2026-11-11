@@ -111,7 +111,8 @@ export function PlotTab({ store, plain }: { store: Store; plain: boolean }) {
               );
             })}
           </g>
-          <text x={PLOT - 14} y="-3" className="north">N? (confirm)</text>
+          <text x={PLOT / 2} y="-3" textAnchor="middle" className="north">N ↑</text>
+          <text x={PLOT / 2} y={PLOT + 8} textAnchor="middle" className="north">gate</text>
         </svg>
       </div>
       <p className="muted small">Layout is a first guess: drag things to match the real plot. Everything snaps to 6 inches; tap to edit.</p>
