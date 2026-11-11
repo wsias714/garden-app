@@ -59,7 +59,7 @@ export function SettingsSheet({ store, sync, onClose }: { store: Store; sync: Sy
         </>
       ) : (
         <>
-          <p className="muted">Data stays on this phone until you connect Dropbox. Sync keeps it safe and shared between phones. It needs the Garden Journal Dropbox app key (not registered yet).</p>
+          <p className="muted">Data stays on this phone until you connect Dropbox. Sync keeps it safe and shared between phones.</p>
           <label className="lbl">Dropbox app key<input className="field" value={key} onChange={(e) => setKey(e.target.value)} autoCapitalize="none" /></label>
           <div className="btnrow">
             <button className="btn primary" disabled={!key.trim()} onClick={() => void connect(false)}>Connect</button>
