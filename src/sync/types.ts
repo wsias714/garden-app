@@ -1,7 +1,7 @@
 /* Garden Journal data. Every record has a string `id` and an `updated` stamp (ms). Deletes write a
    tombstone keyed "<collection>:<id>". Plot geometry is in inches, origin top-left of the plot. */
 
-export type ItemKind = "bed" | "tree" | "mint" | "drip" | "label";
+export type ItemKind = "bed" | "tree" | "mint" | "drip" | "label" | "path" | "container" | "trellis";
 export interface MapItem {
   id: string;
   kind: ItemKind;
@@ -73,6 +73,12 @@ export interface Settings {
   plain: boolean; // Plain mode: no paper texture or pencil wobble
   lat: number;
   lon: number;
+  /* Plot and community-garden rules (optional so older data loads; defaults in engine.ts). */
+  plotWIn?: number; // plot width, inches
+  plotHIn?: number; // plot depth, inches
+  idleDays?: number; // the garden's "must be tended every N days" rule; 0 = no rule
+  maxHeightFt?: number; // tree and trellis height limit; 0 = none
+  weedPct?: number; // weed limit at walk-through, percent; 0 = none
 }
 
 export interface Meta {

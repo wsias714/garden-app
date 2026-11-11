@@ -75,3 +75,28 @@ export function pruneTombstones(d: GardenData, nowMs: number): GardenData {
 export function withTomb(meta: Meta, coll: Coll, id: string, nowMs: number): Meta {
   return { ...meta, tomb: { ...meta.tomb, [`${coll}:${id}`]: nowMs } };
 }
+
+export const DONE_KEEP_DAYS = 120;
+const RECURRING = ["water", "feed", "pick"];
+const FOREVER = ["harvest", "mint"]; // one-off ids that would come back if forgotten
+
+/** Bound the completion history. Deterministic (depends only on the data and the date), so every
+    device converges. Keeps: anything recent; the latest record per recurring rule and plant (the
+    schedule counts from it); one-off harvest and mint records. Drops records of deleted plants. */
+export function compactDone(d: GardenData, nowMs: number): GardenData {
+  const cutoff = new Date(nowMs - DONE_KEEP_DAYS * DAY).toISOString().slice(0, 10);
+  const plants = new Set(d.plants.map((p) => p.id));
+  const latest = new Map<string, string>();
+  for (const x of d.done) {
+    const [rule, pid] = x.id.split(":");
+    if (RECURRING.includes(rule) && x.state !== "open" && x.at > (latest.get(`${rule}:${pid}`) ?? "")) latest.set(`${rule}:${pid}`, x.at);
+  }
+  const keep = d.done.filter((x) => {
+    const [rule, pid] = x.id.split(":");
+    if ((RECURRING.includes(rule) || rule === "harvest") && !plants.has(pid) && d.meta.tomb[`plants:${pid}`] !== undefined) return false;
+    if (x.at >= cutoff) return true;
+    if (FOREVER.includes(rule)) return true;
+    return RECURRING.includes(rule) && x.state !== "open" && latest.get(`${rule}:${pid}`) === x.at;
+  });
+  return keep.length === d.done.length ? d : { ...d, done: keep };
+}

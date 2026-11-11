@@ -97,3 +97,6 @@ h2 { margin: 0; font-size: 26px; }
 .alert.heat { border-color: var(--rose); } .alert.rain { border-color: var(--slate); } .alert.frost { border-color: #8a8fc0; } .alert.wind { border-color: #c9a25e; }
 .climate { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
 .climate .lbl { margin: 6px 0; }
+.path { fill: #efe6d6; stroke: #cdbfa8; stroke-width: 0.5; stroke-dasharray: 1 1.5; }
+.pot { fill: none; stroke: var(--rose); stroke-width: 0.4; }
+.trellis { stroke: #8a6b4f; stroke-width: 1.6; stroke-dasharray: 4 1 1 1; }

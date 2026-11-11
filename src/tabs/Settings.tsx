@@ -7,6 +7,7 @@ import type { Store } from "../store.ts";
 import { SEED_ITEMS } from "../seed.ts";
 import { withTomb } from "../sync/merge.ts";
 import { Sheet } from "../ui.tsx";
+import { rules } from "../engine.ts";
 
 export function SettingsSheet({ store, sync, onClose }: { store: Store; sync: Sync; onClose: () => void }) {
   const s = store.data.meta.settings;
@@ -41,6 +42,11 @@ export function SettingsSheet({ store, sync, onClose }: { store: Store; sync: Sy
     a.download = `garden-journal-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+  const r = rules(store.data);
+  const num = (v: string, apply: (n: number) => void, min = 0) => {
+    const n = parseFloat(v);
+    if (!Number.isNaN(n) && n >= min) apply(n);
   };
   const round = (v: string) => Math.round(parseFloat(v) * 100) / 100;
 
@@ -81,6 +87,16 @@ export function SettingsSheet({ store, sync, onClose }: { store: Store; sync: Sy
       <div className="btnrow">
         <input className="field" inputMode="decimal" value={s.lat} onChange={(e) => { const v = round(e.target.value); if (!Number.isNaN(v)) store.setSettings({ lat: v }); }} />
         <input className="field" inputMode="decimal" value={s.lon} onChange={(e) => { const v = round(e.target.value); if (!Number.isNaN(v)) store.setSettings({ lon: v }); }} />
+      </div>
+
+      <h3>Plot and garden rules</h3>
+      <p className="muted small">Plot size draws the map. The rules drive reminders: tend the plot before the idle limit, a monthly weed check before the walk-through, and yearly tree pruning under the height limit. 0 turns a rule off.</p>
+      <div className="climate">
+        <label className="lbl">Plot width (ft)<input className="field" inputMode="decimal" defaultValue={r.plotWIn / 12} onBlur={(e) => num(e.target.value, (v) => store.setSettings({ plotWIn: Math.round(v * 2) * 6 }), 2)} /></label>
+        <label className="lbl">Plot depth (ft)<input className="field" inputMode="decimal" defaultValue={r.plotHIn / 12} onBlur={(e) => num(e.target.value, (v) => store.setSettings({ plotHIn: Math.round(v * 2) * 6 }), 2)} /></label>
+        <label className="lbl">Tend at least every (days)<input className="field" inputMode="numeric" defaultValue={r.idleDays} onBlur={(e) => num(e.target.value, (v) => store.setSettings({ idleDays: v }))} /></label>
+        <label className="lbl">Tree and trellis limit (ft)<input className="field" inputMode="numeric" defaultValue={r.maxHeightFt} onBlur={(e) => num(e.target.value, (v) => store.setSettings({ maxHeightFt: v }))} /></label>
+        <label className="lbl">Weed limit (%)<input className="field" inputMode="numeric" defaultValue={r.weedPct} onBlur={(e) => num(e.target.value, (v) => store.setSettings({ weedPct: v }))} /></label>
       </div>
 
       <h3>Map</h3>

@@ -139,14 +139,16 @@ export function PlantSheet({ plant, store, onClose }: { plant: Plant; store: Sto
 
 export function ItemSheet({ item, store, onClose }: { item: MapItem; store: Store; onClose: () => void }) {
   const set = (patch: Partial<MapItem>) => store.upsert("items", { ...item, ...patch });
-  const step = (k: "w" | "h", d: number) => set({ [k]: Math.max(6, item[k] + d) });
+  const line = item.kind === "drip" || item.kind === "trellis";
+  const round = item.kind === "tree" || item.kind === "container";
+  const step = (k: "w" | "h", d: number) => set({ [k]: Math.max(line && k === "h" ? 2 : 6, item[k] + d) });
   return (
     <Sheet title={item.label || item.kind} onClose={onClose}>
       <label className="lbl">Label<input className="field" value={item.label} onChange={(e) => set({ label: e.target.value })} /></label>
       <div className="steppers">
-        {(["w", "h"] as const).map((k) => (
+        {(round ? (["w"] as const) : (["w", "h"] as const)).map((k) => (
           <div key={k} className="stepper">
-            <span>{k === "w" ? "Width" : "Length"} {item[k]} in</span>
+            <span>{line ? (k === "w" ? "Length" : "Slope") : round ? "Diameter" : k === "w" ? "Width" : "Length"} {item[k]} in</span>
             <button className="btn" onClick={() => step(k, -6)}>-6</button>
             <button className="btn" onClick={() => step(k, 6)}>+6</button>
           </div>

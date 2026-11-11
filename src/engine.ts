@@ -1,6 +1,6 @@
 import { CATALOG, cropByKey, seasonFactor } from "./catalog.ts";
 import type { Climate, Crop } from "./catalog.ts";
-import { addDays, diffDays, fmt, monthOf, parse, pretty } from "./dates.ts";
+import { addDays, fmt, monthOf, parse, pretty } from "./dates.ts";
 import type { GardenData, Plant } from "./sync/types.ts";
 
 /* Pure schedule engine. Nothing but completions (`done`) is stored, so two phones never conflict
@@ -91,14 +91,17 @@ export function waterNudge(p: Plant, f: Forecast | null, date: string, today: st
   const d = dayOf(f, on);
   const next = dayOf(f, addDays(on, 1));
   const c = climateOf(p);
+  const parts: string[] = [];
+  const hot = d && (d.tMaxC >= HOT_C || (c.heat === "tender" && d.tMaxC >= WARM_C));
   if (rainy(d) || rainy(next)) {
     const r = rainy(d) ? d! : next!;
-    return `Rain ${r.date === on ? "that day" : "the next day"} (about ${mmToIn(r.rainMm)} in): likely skip; check the soil 2 in down.`;
+    parts.push(`${r.rainProb}% chance of about ${mmToIn(r.rainMm)} in ${r.date === on ? "that day" : "the next day"}: if it comes, skip; if not, water as usual.`);
+  } else if (on <= addDays(today, 1) && f.pastRainMm >= RAIN_MM) {
+    parts.push(`It rained about ${mmToIn(f.pastRainMm)} in recently: check the soil 2 in down first.`);
   }
-  if (on <= addDays(today, 1) && f.pastRainMm >= RAIN_MM) return `It rained about ${mmToIn(f.pastRainMm)} in recently: check the soil before watering.`;
-  if (d && (d.tMaxC >= HOT_C || (c.heat === "tender" && d.tMaxC >= WARM_C))) return `${cToF(d.tMaxC)}°F: water early and deeply. ${c.heatCare}`;
-  if (d && d.rhMin <= 20 && d.gustKmh >= 40) return "Dry gusty wind: soil dries fast, check it today.";
-  return "";
+  if (hot) parts.push(`${cToF(d!.tMaxC)}°F: if the soil is dry, water early and deeply. ${c.heatCare}`);
+  else if (d && d.rhMin <= 20 && d.gustKmh >= 40) parts.push("Dry gusty wind: soil dries fast, check it today.");
+  return parts.join(" ");
 }
 
 const latestDone = (d: GardenData, prefix: string): string => {
@@ -107,34 +110,43 @@ const latestDone = (d: GardenData, prefix: string): string => {
   return best;
 };
 const isDone = (d: GardenData, id: string) => d.done.some((x) => x.id === id && x.state !== "open");
+/** Last time a rule ran for a plant: a ticked task, or (for water) a "Watered" journal entry. */
+const lastRun = (d: GardenData, rule: string, plantId: string): string => {
+  let best = latestDone(d, `${rule}:${plantId}:`);
+  if (rule === "water") for (const l of d.logs) if (l.kind === "water" && l.plantId === plantId && l.date > best) best = l.date;
+  return best;
+};
 
 function plantTasks(p: Plant, d: GardenData, f: Forecast | null, today: string, horizon: number, out: Task[]) {
   if (!active(p) || !p.planted) return;
   const crop = cropByKey(p.cropKey);
   const end = addDays(today, horizon);
   const base = { plantId: p.id, done: false, monthly: false };
-  const emit = (rule: "water" | "feed", title: string, every: (month: number) => number, firstOffset: number) => {
-    const last = latestDone(d, `${rule}:${p.id}:`);
+  const emit = (rule: "water" | "feed" | "pick", title: string, every: (month: number) => number, firstOffset: number) => {
+    const last = lastRun(d, rule, p.id);
     let due = last ? addDays(last, every(monthOf(last))) : addDays(p.planted, firstOffset);
-    // Missed several: show one overdue task, not a pile of them.
+    // Missed: one catch-up task; the cadence restarts from when it is done, so no future copies yet.
     if (due < today) {
-      out.push({ ...base, id: `${rule}:${p.id}:${due}`, date: due, title, note: "", kind: rule, overdue: true, nudge: rule === "water" ? waterNudge(p, f, due, today) : "" });
-      due = addDays(today, every(monthOf(today)));
+      out.push({ ...base, id: `${rule}:${p.id}:${due}`, date: due, title, note: `Due ${pretty(due)}; the next one is scheduled from when you do it.`, kind: rule === "pick" ? "harvest" : rule, overdue: true, nudge: rule === "water" ? waterNudge(p, f, due, today) : "" });
+      return;
     }
     for (let i = 0; i < 6 && due <= end; i++) {
-      out.push({ ...base, id: `${rule}:${p.id}:${due}`, date: due, title, note: "", kind: rule, overdue: false, nudge: rule === "water" ? waterNudge(p, f, due, today) : "" });
+      out.push({ ...base, id: `${rule}:${p.id}:${due}`, date: due, title, note: "", kind: rule === "pick" ? "harvest" : rule, overdue: false, nudge: rule === "water" ? waterNudge(p, f, due, today) : "" });
       due = addDays(due, every(monthOf(due)));
     }
   };
   if (!p.onDrip) emit("water", `Water ${p.name}`, (m) => waterInterval(p, crop, m), waterInterval(p, crop, monthOf(p.planted)));
   if (crop && !crop.perennial) emit("feed", `Feed ${p.name}`, () => 28, 21);
   if (crop?.days && p.status === "growing") {
+    // One-off: the window opens. Stays visible until ticked (or the plant moves to "harvesting").
     const open = addDays(p.planted, crop.days[0]);
     const id = `harvest:${p.id}`;
     if (!isDone(d, id) && open <= end) {
-      out.push({ ...base, id, date: open, title: `${p.name}: harvest window opens`, note: `Usually ripe by ${crop.days[1]} days after planting.`, kind: "harvest", overdue: open < today && diffDays(today, open) > 14, nudge: "" });
+      out.push({ ...base, id, date: open, title: `${p.name}: harvest window opens`, note: `Usually ripe by ${crop.days[1]} days after planting. Set it to "harvesting" for picking reminders.`, kind: "harvest", overdue: open < today, nudge: "" });
     }
   }
+  // Recurring picking while the plant is "harvesting".
+  if (p.status === "harvesting") emit("pick", `Pick ${p.name}`, () => (crop?.perennial ? 7 : 3), 0);
 }
 
 /** Tasks due between today (overdue included) and today + horizon, plus what was ticked today. */
@@ -144,18 +156,20 @@ export function generateTasks(d: GardenData, f: Forecast | null, today: string, 
   const end = addDays(today, horizon);
   const chore = { kind: "check" as const, plantId: "", done: false, overdue: false, nudge: "" };
 
-  // Calendar rules: a "this month" chore from the 1st, visible for two weeks.
+  // Calendar rules: a "this month" chore from the 1st, visible until done or the month ends.
   for (const offset of [0, 1]) {
     const t = parse(today);
     const first = fmt(new Date(t.getFullYear(), t.getMonth() + offset, 1));
     const ym = first.slice(0, 7);
     const add = (id: string, title: string, note: string) => {
-      if (first > end || diffDays(today, first) > 13 || isDone(d, id)) return;
+      if (first > end || first.slice(0, 7) < today.slice(0, 7) || isDone(d, id)) return;
       out.push({ ...chore, id, date: first, title, note, monthly: true });
     };
     add(`drip:${ym}`, "Check the drip system", "Walk the line: leaks, clogged emitters, loose fittings, timer battery.");
     if ([3, 6, 9, 11].includes(monthOf(first))) add(`timer:${ym}`, "Adjust the drip timer for the season", "Winter needs far less water than summer.");
   }
+
+  ruleTasks(d, today, horizon, out);
 
   // Mint regrowth checks: every 2 weeks for 8 weeks after the "pull it out" step is ticked.
   const pull = d.steps.find((s) => s.id === "mint-3");
@@ -176,6 +190,64 @@ export function generateTasks(d: GardenData, f: Forecast | null, today: string, 
     }
   }
   return out.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.id < b.id ? -1 : 1));
+}
+
+export const RULE_DEFAULTS = { idleDays: 30, maxHeightFt: 6, weedPct: 10, plotWIn: 120, plotHIn: 120 };
+export const rules = (d: GardenData) => {
+  const s = d.meta.settings;
+  const pick = (v: number | undefined, def: number) => (v === undefined || Number.isNaN(v) ? def : v);
+  return {
+    idleDays: pick(s.idleDays, RULE_DEFAULTS.idleDays),
+    maxHeightFt: pick(s.maxHeightFt, RULE_DEFAULTS.maxHeightFt),
+    weedPct: pick(s.weedPct, RULE_DEFAULTS.weedPct),
+    plotWIn: pick(s.plotWIn, RULE_DEFAULTS.plotWIn) || RULE_DEFAULTS.plotWIn,
+    plotHIn: pick(s.plotHIn, RULE_DEFAULTS.plotHIn) || RULE_DEFAULTS.plotHIn,
+  };
+};
+
+/** Most recent sign of gardening: a log, a ticked task or step, or a planting. */
+export function lastActivity(d: GardenData): string {
+  let best = "";
+  for (const l of d.logs) if (l.date > best) best = l.date;
+  for (const x of d.done) if (x.state !== "open" && x.at > best) best = x.at;
+  for (const s of d.steps) if (s.done && s.doneAt > best) best = s.doneAt;
+  for (const p of d.plants) if (p.planted > best) best = p.planted;
+  return best;
+}
+
+/** Community-garden rule chores: keep the plot active, weed check before the walk-through, prune trees. */
+function ruleTasks(d: GardenData, today: string, horizon: number, out: Task[]) {
+  const r = rules(d);
+  const end = addDays(today, horizon);
+  const chore = { kind: "check" as const, plantId: "", done: false, nudge: "" };
+  const last = lastActivity(d);
+  if (r.idleDays > 0 && last) {
+    const due = addDays(last, Math.max(1, r.idleDays - 7));
+    const id = `tend:${due}`;
+    if (due <= end && !isDone(d, id)) {
+      out.push({ ...chore, id, date: due, title: "Visit and tend the plot", monthly: false, overdue: today > addDays(last, r.idleDays),
+        note: `Garden rules: a plot left untended for ${r.idleDays} days gets a violation notice. Last activity ${pretty(last)}. Log anything you do here to reset it.` });
+    }
+  }
+  const ym = today.slice(0, 7);
+  if (r.weedPct > 0 && !isDone(d, `weeds:${ym}`)) {
+    out.push({ ...chore, id: `weeds:${ym}`, date: `${ym}-01`, title: `Weed check (under ${r.weedPct}%)`, monthly: true, overdue: false,
+      note: `The monthly rules walk-through allows no more than ${r.weedPct}% weeds in the plot and the path beside it. Clear trash and debris; no hay or straw mulch.` });
+  }
+  const m = monthOf(today);
+  if (r.maxHeightFt > 0 && (m === 1 || m === 2)) {
+    const year = today.slice(0, 4);
+    const trees = [
+      ...d.items.filter((i) => i.kind === "tree").map((i) => ({ id: i.id, name: i.label })),
+      ...d.plants.filter((p) => p.status !== "done" && ["fruit"].includes(cropByKey(p.cropKey)?.kind ?? "")).map((p) => ({ id: p.id, name: p.name })),
+    ];
+    for (const t of trees) {
+      const id = `prune:${t.id}:${year}`;
+      if (isDone(d, id)) continue;
+      out.push({ ...chore, id, date: `${year}-01-01`, title: `Prune ${t.name} under ${r.maxHeightFt} ft`, monthly: true, overdue: false,
+        note: `Garden rules: trees are pruned every year below ${r.maxHeightFt} ft (a little taller only while fruiting) and must not shade a neighbour's plot.` });
+    }
+  }
 }
 
 /** Weather alerts for the next 7 days, naming the plants each one matters for. */
@@ -216,15 +288,15 @@ export function weatherAlerts(d: GardenData, f: Forecast | null, today: string):
     const sensitive = plants.filter((p) => climateOf(p).rainSensitive);
     const care = [...new Set(sensitive.map((p) => climateOf(p).rainCare))];
     out.push({ id: `rain:${wet[0].date}`, date: wet[0].date, kind: "rain", title: `Rain ${wet.map(dayName).join(", ")}: about ${mmToIn(total)} in`,
-      detail: `${big >= SOAK_MM ? "A good soak: skip watering for a few days" : "Skip watering on and right after the wet days"}${anyDrip ? " and pause the drip timer" : ""}.${sensitive.length ? ` Rain-sensitive: ${list(sensitive.map((p) => p.name))}. ${care.length === 1 ? care[0] : "See each plant's rain note."}` : ""}` });
+      detail: `Forecast, not certain. If it arrives: ${big >= SOAK_MM ? "a good soak, so skip watering for a few days" : "skip watering on and right after the wet days"}${anyDrip ? " and pause the drip timer" : ""}. If it doesn't, keep to the schedule.${sensitive.length ? ` Rain-sensitive: ${list(sensitive.map((p) => p.name))}. ${care.length === 1 ? care[0] : "See each plant's rain note."}` : ""}` });
   }
   const et = f.days.reduce((s, x) => s + x.et0Mm, 0);
   const rain = f.days.reduce((s, x) => s + x.rainMm, 0);
-  if (plants.length) {
+  if (plants.length && f.days.length >= 7) {
     const need = Math.max(0, et - rain);
     // 1 mm over 1 sq ft is about 0.0245 gal. ET0 is for grass; veg beds use roughly the same, so a guide only.
-    out.push({ id: "week", date: today, kind: "week", title: "This week's water",
-      detail: `Sun and wind will pull about ${mmToIn(et)} in of water from the beds; rain adds ${mmToIn(rain)} in. ${need > 2 ? `Plan to replace about ${mmToIn(need)} in (about ${(need * 0.0245).toFixed(2)} gal per sq ft of bed).` : "Rain covers it."}` });
+    out.push({ id: "week", date: today, kind: "week", title: "This week's water (rough guide)",
+      detail: `Regional estimate: sun and wind pull about ${mmToIn(et)} in of water from open ground this week; the forecast rain is ${mmToIn(rain)} in. ${need > 2 ? `Beds may need about ${mmToIn(need)} in (about ${(need * 0.0245).toFixed(2)} gal per sq ft) from you or the drip.` : "If the rain arrives it should cover most of it; check the soil."}` });
   }
   return out;
 }

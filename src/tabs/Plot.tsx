@@ -5,8 +5,8 @@ import type { Store } from "../store.ts";
 import { uid } from "../store.ts";
 import type { ItemKind, MapItem, Plant } from "../sync/types.ts";
 import { CropPicker, Glyph, ItemSheet, PlantSheet, newPlant } from "../ui.tsx";
+import { rules } from "../engine.ts";
 
-const PLOT = 120; // inches: 10 ft square (the real size is still to confirm)
 const SNAP = 6;
 const snap = (n: number) => Math.round(n / SNAP) * SNAP;
 type Sel = { type: "item" | "plant"; id: string } | null;
@@ -17,11 +17,16 @@ const ADD: { kind: ItemKind; label: string; w: number; h: number }[] = [
   { kind: "tree", label: "Tree", w: 24, h: 24 },
   { kind: "mint", label: "Mint zone", w: 24, h: 24 },
   { kind: "drip", label: "Drip line", w: 60, h: 2 },
+  { kind: "path", label: "Path", w: 24, h: 60 },
+  { kind: "container", label: "Container", w: 18, h: 18 },
+  { kind: "trellis", label: "Trellis", w: 48, h: 2 },
   { kind: "label", label: "Label", w: 30, h: 8 },
 ];
 
 export function PlotTab({ store, plain }: { store: Store; plain: boolean }) {
   const { items, plants } = store.data;
+  const { plotWIn: W, plotHIn: H } = rules(store.data);
+  const clamp = (v: number, size: number, max: number) => Math.min(Math.max(v, 0), Math.max(0, max - size));
   const svg = useRef<SVGSVGElement>(null);
   const [sel, setSel] = useState<Sel>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
@@ -46,7 +51,10 @@ export function PlotTab({ store, plain }: { store: Store; plain: boolean }) {
     if (!drag) return;
     const p = pt(e);
     const moved = drag.moved || Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > 5;
-    setDrag({ ...drag, x: snap(p.x - drag.dx), y: snap(p.y - drag.dy), moved });
+    const it = drag.type === "item" ? items.find((i) => i.id === drag.id) : undefined;
+    const w = it ? it.w : 0;
+    const h = it ? (it.kind === "tree" ? it.w : it.h) : 0;
+    setDrag({ ...drag, x: clamp(snap(p.x - drag.dx), w, W), y: clamp(snap(p.y - drag.dy), h, H), moved });
   };
   const up = () => {
     if (!drag) return;
@@ -57,7 +65,7 @@ export function PlotTab({ store, plain }: { store: Store; plain: boolean }) {
     } else {
       const p = plants.find((i) => i.id === drag.id);
       if (p) {
-        const bed = items.find((i) => i.kind === "bed" && drag.x >= i.x && drag.x <= i.x + i.w && drag.y >= i.y && drag.y <= i.y + i.h);
+        const bed = items.find((i) => (i.kind === "bed" || i.kind === "container") && drag.x >= i.x && drag.x <= i.x + i.w && drag.y >= i.y && drag.y <= i.y + i.h);
         store.upsert("plants", { ...p, x: drag.x, y: drag.y, itemId: bed?.id ?? "" });
       }
     }
@@ -68,7 +76,7 @@ export function PlotTab({ store, plain }: { store: Store; plain: boolean }) {
   const atP = (p: Plant) => (drag?.type === "plant" && drag.id === p.id ? { x: drag.x, y: drag.y } : { x: p.x, y: p.y });
 
   const addItem = (a: (typeof ADD)[number]) => {
-    const it: MapItem = { id: uid(), kind: a.kind, label: a.kind === "label" ? "Note" : a.label, x: 42, y: 42, w: a.w, h: a.h, updated: 0 };
+    const it: MapItem = { id: uid(), kind: a.kind, label: a.kind === "label" ? "Note" : a.label, x: snap(W / 2 - a.w / 2), y: snap(H / 2 - a.h / 2), w: a.w, h: a.h, updated: 0 };
     store.upsert("items", it);
     setSel({ type: "item", id: it.id });
   };
@@ -80,13 +88,13 @@ export function PlotTab({ store, plain }: { store: Store; plain: boolean }) {
     <div className="page">
       <h1 className="title">Plot</h1>
       <div className="mapwrap">
-        <svg ref={svg} viewBox={`-10 -10 ${PLOT + 20} ${PLOT + 20}`} className="map" onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
+        <svg ref={svg} viewBox={`-10 -10 ${W + 20} ${H + 20}`} className="map" onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
           <defs>
             <filter id="pencil"><feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="2" seed="3" result="n" /><feDisplacementMap in="SourceGraphic" in2="n" scale="1.6" /></filter>
             <pattern id="hatch" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="4" stroke="#6fa57a" strokeWidth="1.2" /></pattern>
           </defs>
           <g filter={plain ? undefined : "url(#pencil)"}>
-            <rect x="0" y="0" width={PLOT} height={PLOT} className="ground" />
+            <rect x="0" y="0" width={W} height={H} className="ground" />
             {items.map((it) => {
               const { x, y } = at(it);
               const on = sel?.type === "item" && sel.id === it.id;
@@ -95,6 +103,9 @@ export function PlotTab({ store, plain }: { store: Store; plain: boolean }) {
               if (it.kind === "tree") return <g key={it.id} {...common}><circle cx={x + it.w / 2} cy={y + it.h / 2} r={it.w / 2} className="tree" /><text x={x + it.w / 2} y={y + it.h / 2 + 2} textAnchor="middle" className="blabel">{it.label}</text></g>;
               if (it.kind === "mint") return <g key={it.id} {...common}><rect x={x} y={y} width={it.w} height={it.h} rx="3" className="mint" /><text x={x + 3} y={y + 7} className="blabel">{it.label}</text></g>;
               if (it.kind === "drip") return <g key={it.id} {...common}><line x1={x} y1={y} x2={x + it.w} y2={y + Math.max(0, it.h - 2)} className="drip" /><line x1={x} y1={y} x2={x + it.w} y2={y + Math.max(0, it.h - 2)} className="hit" /></g>;
+              if (it.kind === "path") return <g key={it.id} {...common}><rect x={x} y={y} width={it.w} height={it.h} className="path" /><text x={x + 2} y={y + 6} className="blabel">{it.label}</text></g>;
+              if (it.kind === "container") return <g key={it.id} {...common}><circle cx={x + it.w / 2} cy={y + it.w / 2} r={it.w / 2} className="bed" /><circle cx={x + it.w / 2} cy={y + it.w / 2} r={it.w / 2 - 2} className="pot" /><text x={x + it.w / 2} y={y + it.w + 5} textAnchor="middle" className="blabel">{it.label}</text></g>;
+              if (it.kind === "trellis") return <g key={it.id} {...common}><line x1={x} y1={y} x2={x + it.w} y2={y + Math.max(0, it.h - 2)} className="trellis" /><line x1={x} y1={y} x2={x + it.w} y2={y + Math.max(0, it.h - 2)} className="hit" /><text x={x} y={y - 2} className="blabel">{it.label}</text></g>;
               return <g key={it.id} {...common}><text x={x} y={y + 6} className="note">{it.label}</text><rect x={x} y={y} width={it.w} height={it.h} fill="transparent" /></g>;
             })}
             {plants.filter((p) => p.status !== "done").map((p) => {
@@ -111,11 +122,11 @@ export function PlotTab({ store, plain }: { store: Store; plain: boolean }) {
               );
             })}
           </g>
-          <text x={PLOT / 2} y="-3" textAnchor="middle" className="north">N ↑</text>
-          <text x={PLOT / 2} y={PLOT + 8} textAnchor="middle" className="north">gate</text>
+          <text x={W / 2} y="-3" textAnchor="middle" className="north">N ↑</text>
+          <text x={W / 2} y={H + 8} textAnchor="middle" className="north">gate</text>
         </svg>
       </div>
-      <p className="muted small">Layout is a first guess: drag things to match the real plot. Everything snaps to 6 inches; tap to edit.</p>
+      <p className="muted small">{`Plot ${W / 12} x ${H / 12} ft (change in Settings). Drag to move, tap to edit size and label; everything snaps to 6 inches. Drip lines and trellises are straight lines: set their length and slope.`}</p>
       <div className="chips">
         {ADD.map((a) => <button key={a.kind} className="chip" onClick={() => addItem(a)}>+ {a.label}</button>)}
         <button className="chip primary" onClick={() => setPicker(true)}>+ Plant</button>

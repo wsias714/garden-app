@@ -26,10 +26,24 @@ test("water interval is season-adjusted and recurs", () => {
   assert.equal(t[0].date, "2026-11-13");
 });
 
-test("a long-missed plant shows one overdue water task, not a pile", () => {
+test("a long-missed plant shows one catch-up task and no future copies", () => {
   const t = generateTasks(data(lettuce("2026-09-01")), null, "2026-11-10", 7).filter((x) => x.kind === "water");
-  assert.equal(t.filter((x) => x.overdue).length, 1);
-  assert.ok(t.filter((x) => !x.overdue).every((x) => x.date > "2026-11-10"));
+  assert.equal(t.length, 1);
+  assert.equal(t[0].overdue, true);
+});
+
+test("a 'Watered' journal entry counts as watering", () => {
+  const d = data(lettuce("2026-09-01"));
+  d.logs = [{ id: "l1", date: "2026-11-10", kind: "water", plantId: "p1", text: "Watered", qty: 0, unit: "", updated: 1 }];
+  const t = generateTasks(d, null, "2026-11-10", 7).filter((x) => x.kind === "water");
+  assert.ok(t.length > 0 && t.every((x) => !x.overdue && x.date > "2026-11-10"));
+});
+
+test("harvesting plants get recurring pick reminders; an open harvest window stays visible", () => {
+  const pick = generateTasks(data(lettuce("2026-09-01", { status: "harvesting" })), null, "2026-11-10", 7).filter((x) => x.id.startsWith("pick:"));
+  assert.ok(pick.length >= 1);
+  const late = generateTasks(data(lettuce("2026-08-01")), null, "2026-11-10", 7).find((x) => x.id === "harvest:p1")!;
+  assert.equal(late.overdue, true);
 });
 
 test("completing a water task moves the next one and stays visible today", () => {
@@ -59,13 +73,21 @@ test("harvest window opens at the catalog's first day", () => {
   assert.equal(generateTasks(data(lettuce("2026-11-01")), null, "2026-11-10", 60).find((x) => x.kind === "harvest")!.date, "2026-12-16");
 });
 
+test("rain and heat advice combine in one nudge", () => {
+  const d = data(lettuce("2026-11-08"));
+  const f = week("2026-11-10", { 3: { rainMm: 9, rainProb: 80, tMaxC: 33 } });
+  const t = generateTasks(d, f, "2026-11-10", 7).find((x) => x.kind === "water")!;
+  assert.match(t.nudge, /chance/);
+  assert.match(t.nudge, /°F/);
+});
+
 test("rain in the forecast nudges a water task, never skips it", () => {
   const d = data(lettuce("2026-11-08"));
   const due = generateTasks(d, null, "2026-11-10", 7).find((x) => x.kind === "water")!.date;
   const f = week("2026-11-10", { [3]: { rainMm: 9, rainProb: 80 } }); // 11-13 = due date
   assert.equal(due, "2026-11-13");
   const t = generateTasks(d, f, "2026-11-10", 7).find((x) => x.kind === "water")!;
-  assert.match(t.nudge, /Rain/);
+  assert.match(t.nudge, /chance/);
   assert.equal(t.done, false);
 });
 
@@ -76,6 +98,7 @@ test("weather alerts: heat names tender plants, frost names frost-tender, rain, 
   assert.match(by("heat").detail, /Lettuce/);
   assert.match(by("frost").detail, /Tomato/);
   assert.match(by("rain").detail, /soak/);
+  assert.match(by("rain").detail, /Forecast, not certain/);
   assert.equal(a.filter((x) => x.kind === "rain").length, 1);
   assert.match(by("wind").detail, /Santa Ana/);
   assert.ok(by("week"));
@@ -105,10 +128,22 @@ test("mint regrowth checks start after the pull step is ticked", () => {
   assert.equal(generateTasks(d, null, "2026-11-10", 60).find((t) => t.id === "mint:1")?.date, "2026-11-22");
 });
 
-test("monthly drip check is a 'this month' chore for two weeks", () => {
+test("monthly drip check stays a 'this month' chore until done or the month ends", () => {
   const t = generateTasks(emptyData(), null, "2026-11-05", 7).find((x) => x.id === "drip:2026-11")!;
   assert.equal(t.monthly, true);
-  assert.ok(!generateTasks(emptyData(), null, "2026-11-20", 7).some((x) => x.id === "drip:2026-11"));
+  assert.ok(generateTasks(emptyData(), null, "2026-11-28", 1).some((x) => x.id === "drip:2026-11"));
+  assert.ok(!generateTasks(emptyData(), null, "2026-12-02", 1).some((x) => x.id === "drip:2026-11"));
+});
+
+test("garden rules: tend reminder before the idle limit, weed check, winter tree pruning", () => {
+  const d = data(lettuce("2026-10-01"));
+  const t = generateTasks(d, null, "2026-10-25", 7);
+  assert.equal(t.find((x) => x.id.startsWith("tend:"))?.date, "2026-10-24");
+  assert.ok(t.some((x) => x.id === "weeds:2026-10"));
+  const jan = generateTasks(emptyData(), null, "2027-01-10", 7);
+  assert.ok(jan.some((x) => x.id === "prune:seed-lemon:2027" && /6 ft/.test(x.title)));
+  const off = { ...emptyData(), meta: { ...emptyData().meta, settings: { ...emptyData().meta.settings, maxHeightFt: 0, weedPct: 0 } } };
+  assert.ok(!generateTasks(off, null, "2027-01-10", 7).some((x) => x.id.startsWith("prune:") || x.id.startsWith("weeds:")));
 });
 
 test("sow now lists optimal crops not already planted", () => {

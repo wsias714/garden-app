@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { emptyData } from "./seed.ts";
 import { parseData } from "./sync/remote.ts";
-import { withTomb } from "./sync/merge.ts";
+import { compactDone, withTomb } from "./sync/merge.ts";
+import { SEED_STEPS } from "./seed.ts";
 import type { Coll, Done, GardenData, Settings } from "./sync/types.ts";
 
 const KEY = "garden-data-v1";
@@ -11,7 +12,14 @@ export const uid = () => Date.now().toString(36) + Math.random().toString(36).sl
 function load(): GardenData {
   try {
     const raw = window.localStorage.getItem(KEY);
-    if (raw) return parseData(raw);
+    if (raw) {
+      const d = parseData(raw);
+      // Starter steps nobody has edited (updated 0) pick up the current wording; deleted ones stay deleted.
+      const seed = new Map(SEED_STEPS.map((x) => [x.id, x]));
+      const steps = d.steps.map((x) => (x.updated === 0 && seed.has(x.id) ? seed.get(x.id)! : x));
+      for (const x of SEED_STEPS) if (!steps.some((y) => y.id === x.id) && d.meta.tomb[`steps:${x.id}`] === undefined) steps.push(x);
+      return compactDone({ ...d, steps }, Date.now());
+    }
   } catch {
     /* fall through to the starter data */
   }

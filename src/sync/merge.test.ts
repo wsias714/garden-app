@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { emptyData } from "../seed.ts";
-import { mergeData, pruneTombstones, sameData, withTomb } from "./merge.ts";
+import { compactDone, mergeData, pruneTombstones, sameData, withTomb } from "./merge.ts";
 import { ConflictError, backupDue, backupsToDelete, syncGarden } from "./remote.ts";
 import type { Remote } from "./remote.ts";
 import type { GardenData, Plant } from "./types.ts";
@@ -110,4 +110,20 @@ test("backups: weekly, keep eight", () => {
   assert.equal(backupDue(["/backups/auto-2026-11-01.json"], now), true);
   const many = Array.from({ length: 10 }, (_, i) => `/backups/auto-2026-0${i + 1 > 9 ? 9 : i + 1}-0${i + 1}.json`);
   assert.equal(backupsToDelete(many).length, 2);
+});
+
+test("done records are compacted but the schedule anchor survives", () => {
+  const now = Date.parse("2026-11-10T12:00:00Z");
+  const rec = (id: string, at: string) => ({ id, at, state: "done" as const, title: id, updated: 1 });
+  const d = { ...withPlants(plant("p", "x", 1)), done: [
+    rec("water:p:2026-01-01", "2026-01-01"), rec("water:p:2026-02-01", "2026-02-01"), // old and superseded: drop
+    rec("water:p:2026-11-01", "2026-11-01"), // recent
+    rec("drip:2026-01", "2026-01-03"), // old month chore: drop
+    rec("harvest:p", "2026-01-05"), // one-off: keep
+    rec("water:gone:2026-11-01", "2026-11-01"), // deleted plant: drop
+  ], meta: withTomb(base().meta, "plants", "gone", 5) };
+  const ids = compactDone(d, now).done.map((x) => x.id).sort();
+  assert.deepEqual(ids, ["harvest:p", "water:p:2026-11-01"]);
+  const again = compactDone(compactDone(d, now), now);
+  assert.deepEqual(again.done.map((x) => x.id).sort(), ids);
 });

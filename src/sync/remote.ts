@@ -1,4 +1,4 @@
-import { mergeData, pruneTombstones, sameData } from "./merge.ts";
+import { compactDone, mergeData, pruneTombstones, sameData } from "./merge.ts";
 import type { GardenData } from "./types.ts";
 
 /* Sync engine against a tiny `Remote` interface, so it is tested with an in-memory fake and runs
@@ -65,7 +65,7 @@ export function backupDue(existing: string[], now: number): boolean {
 export function backupsToDelete(existing: string[]): string[] {
   return [...existing].sort().slice(0, Math.max(0, existing.length - KEEP_BACKUPS));
 }
-const warn = (bytes: number) => (bytes >= DATA_BUDGET * 0.7 ? `Data file is ${(bytes / 1e6).toFixed(2)} MB of 1 MB; finished seasons will move to an archive.` : "");
+const warn = (bytes: number) => (bytes >= DATA_BUDGET * 0.7 ? `Data file is ${(bytes / 1e6).toFixed(2)} MB of 1 MB. Old task records are trimmed automatically; export a backup from Settings if it keeps growing.` : "");
 
 /** Pull remote, merge with `local`, push only if that changed anything. */
 export async function syncGarden(remote: Remote, local: GardenData, opts: { now?: number } = {}): Promise<SyncResult> {
@@ -74,7 +74,7 @@ export async function syncGarden(remote: Remote, local: GardenData, opts: { now?
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     const r = await remote.read(DATA_PATH);
     const remoteData = r ? parseData(r.text) : null;
-    const merged = pruneTombstones(remoteData ? mergeData(working, remoteData) : working, now);
+    const merged = compactDone(pruneTombstones(remoteData ? mergeData(working, remoteData) : working, now), now);
 
     if (r && remoteData && sameData(merged, remoteData)) {
       const bytes = sizeOf(r.text);
