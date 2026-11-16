@@ -7,6 +7,7 @@ import { climateOf, waterInterval } from "./engine.ts";
 import type { Store } from "./store.ts";
 import { uid } from "./store.ts";
 import type { MapItem, Plant, PlantStatus } from "./sync/types.ts";
+import { sizeStep } from "./itemSizing.ts";
 
 export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   return (
@@ -141,7 +142,7 @@ export function ItemSheet({ item, store, onClose }: { item: MapItem; store: Stor
   const set = (patch: Partial<MapItem>) => store.upsert("items", { ...item, ...patch });
   const line = item.kind === "drip" || item.kind === "trellis";
   const round = item.kind === "tree" || item.kind === "container";
-  const increment = item.kind === "container" ? 2 : 6;
+  const increment = sizeStep(item.kind);
   const step = (k: "w" | "h", d: number) => set({ [k]: Math.max(line && k === "h" ? 2 : increment, item[k] + d) });
   return (
     <Sheet title={item.label || item.kind} onClose={onClose}>
