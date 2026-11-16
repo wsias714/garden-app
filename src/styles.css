@@ -58,6 +58,7 @@ h2 { margin: 0; font-size: 26px; }
 .list { max-height: 55vh; overflow: auto; margin-top: 8px; }
 .kv { display: flex; justify-content: space-between; padding: 4px 0; }
 .entry { display: flex; gap: 10px; align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.journal-picture { display: block; max-width: 100%; max-height: 240px; object-fit: contain; border-radius: 10px; margin: 8px 0; }
 .steppers { display: grid; gap: 8px; }
 .stepper { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
 
