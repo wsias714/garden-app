@@ -1,11 +1,17 @@
 import { useState } from "react";
 import { pretty, today } from "../dates.ts";
+import type { LogEntry } from "../sync/types.ts";
 import type { Store } from "../store.ts";
 import { uid } from "../store.ts";
 
+type Note = LogEntry & { categories?: string[]; picture?: string };
+
 export function JournalTab({ store }: { store: Store }) {
   const { logs, plants } = store.data;
+  const [editing, setEditing] = useState<Note | null>(null);
   const [text, setText] = useState("");
+  const [categories, setCategories] = useState("");
+  const [picture, setPicture] = useState("");
   const name = (id: string) => plants.find((p) => p.id === id)?.name ?? "";
   const sorted = [...logs].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : a.id < b.id ? 1 : -1));
 
@@ -17,13 +23,23 @@ export function JournalTab({ store }: { store: Store }) {
     totals.set(k, { qty: t.qty + l.qty, n: t.n + 1 });
   }
 
+  const openNote = (note?: Note) => {
+    setEditing(note ?? { id: uid(), date: today(), kind: "note", plantId: "", text: "", qty: 0, unit: "", updated: 0 });
+    setText(note?.text ?? "");
+    setCategories(note?.categories?.join(", ") ?? "");
+    setPicture(note?.picture ?? "");
+  };
+  const saveNote = () => {
+    if (!editing || !text.trim()) return;
+    const note: Note = { ...editing, text: text.trim(), categories: categories.split(",").map((x) => x.trim()).filter(Boolean), picture };
+    store.upsert("logs", note);
+    setEditing(null);
+  };
+
   return (
     <div className="page">
       <h1 className="title">Journal</h1>
-      <div className="btnrow">
-        <input className="field" placeholder="A note about the garden" value={text} onChange={(e) => setText(e.target.value)} />
-        <button className="btn primary" disabled={!text.trim()} onClick={() => { store.upsert("logs", { id: uid(), date: today(), kind: "note", plantId: "", text: text.trim(), qty: 0, unit: "", updated: 0 }); setText(""); }}>Add</button>
-      </div>
+      <div className="btnrow"><button className="btn primary" onClick={() => openNote()}>New note</button></div>
       {totals.size > 0 && (
         <section>
           <h3>Harvest so far</h3>
@@ -35,14 +51,27 @@ export function JournalTab({ store }: { store: Store }) {
       <section>
         <h3>Entries</h3>
         {sorted.length === 0 && <p className="muted">Watering, harvests and notes will collect here, so next year's plan can learn from this one.</p>}
-        {sorted.map((l) => (
-          <div className="entry" key={l.id}>
+        {sorted.map((l) => {
+          const note = l as Note;
+          return <div className="entry" key={l.id}>
             <span className="muted small">{pretty(l.date)}</span>
-            <div className="grow">{l.text}{l.plantId && l.kind !== "harvest" ? ` · ${name(l.plantId)}` : ""}{l.qty ? ` (${l.qty} ${l.unit})` : ""}</div>
+            <div className="grow">{l.text}{l.plantId && l.kind !== "harvest" ? ` · ${name(l.plantId)}` : ""}{l.qty ? ` (${l.qty} ${l.unit})` : ""}
+              {note.categories?.length ? <div className="muted small">{note.categories.join(" · ")}</div> : null}
+              {note.picture ? <img className="journal-picture" src={note.picture} alt="Attached to note" /> : null}
+            </div>
+            {l.kind === "note" && <button className="btn ghost" aria-label="Edit note" onClick={() => openNote(note)}>Edit</button>}
             <button className="btn ghost" aria-label="Delete entry" onClick={() => store.remove("logs", l.id)}>×</button>
-          </div>
-        ))}
+          </div>;
+        })}
       </section>
+      {editing && <div className="scrim" onClick={() => setEditing(null)}><div className="sheet" role="dialog" aria-modal="true" aria-label="Journal note editor" onClick={(e) => e.stopPropagation()}>
+        <div className="sheet-head"><h2>{logs.some((l) => l.id === editing.id) ? "Edit note" : "New note"}</h2><button className="btn ghost" aria-label="Close editor" onClick={() => setEditing(null)}>×</button></div>
+        <label className="lbl">Note<textarea className="field" rows={5} value={text} onChange={(e) => setText(e.target.value)} autoFocus /></label>
+        <label className="lbl">Categories <input className="field" placeholder="e.g. pests, soil, planting" value={categories} onChange={(e) => setCategories(e.target.value)} /></label>
+        <label className="lbl">Picture <input className="field" type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => setPicture(typeof reader.result === "string" ? reader.result : ""); reader.readAsDataURL(file); }} /></label>
+        {picture && <div><img className="journal-picture" src={picture} alt="Note attachment preview" /><button className="btn ghost" onClick={() => setPicture("")}>Remove picture</button></div>}
+        <div className="btnrow"><button className="btn primary" disabled={!text.trim()} onClick={saveNote}>Save note</button><button className="btn" onClick={() => setEditing(null)}>Cancel</button></div>
+      </div></div>}
     </div>
   );
 }
