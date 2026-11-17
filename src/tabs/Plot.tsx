@@ -6,6 +6,7 @@ import { uid } from "../store.ts";
 import type { ItemKind, MapItem, Plant } from "../sync/types.ts";
 import { CropPicker, Glyph, ItemSheet, PlantSheet, newPlant } from "../ui.tsx";
 import { rules } from "../engine.ts";
+import { bedsUnder } from "../plotOrder.ts";
 
 const SNAP = 6;
 const snap = (n: number) => Math.round(n / SNAP) * SNAP;
@@ -95,7 +96,7 @@ export function PlotTab({ store, plain }: { store: Store; plain: boolean }) {
           </defs>
           <g filter={plain ? undefined : "url(#pencil)"}>
             <rect x="0" y="0" width={W} height={H} className="ground" />
-            {items.map((it) => {
+            {bedsUnder(items).map((it) => {
               const { x, y } = at(it);
               const on = sel?.type === "item" && sel.id === it.id;
               const common = { onPointerDown: (e: PointerEvent) => down(e, "item", it.id, it.x, it.y), className: on ? "sel" : "" };
