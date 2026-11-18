@@ -24,6 +24,7 @@ export interface Plant {
   planted: string; // YYYY-MM-DD or ""
   status: PlantStatus;
   notes: string;
+  flag?: "" | "weeding" | "replant"; // needs attention
   /* Climate care (optional so older saved plants still load). Empty means "use the catalog default". */
   waterEveryDays?: number; // 0 or missing = automatic from catalog and season
   onDrip?: boolean; // watered by the drip timer: no manual water reminders, timer alerts instead

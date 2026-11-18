@@ -88,6 +88,11 @@ export function PlantSheet({ plant, store, onClose }: { plant: Plant; store: Sto
           {STATUSES.map((s) => <option key={s}>{s}</option>)}
         </select>
       </label>
+      <label className="lbl">Flag
+        <select className="field" value={plant.flag ?? ""} onChange={(e) => set({ flag: e.target.value as Plant["flag"] })}>
+          <option value="">None</option><option value="weeding">Needs weeding</option><option value="replant">Needs replanting</option>
+        </select>
+      </label>
       <label className="lbl">Planted on
         <input className="field" type="date" value={plant.planted} onChange={(e) => set({ planted: e.target.value, status: e.target.value && plant.status === "planned" ? "growing" : plant.status })} />
       </label>
