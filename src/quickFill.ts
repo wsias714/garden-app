@@ -14,4 +14,7 @@ export function quickPlant(name: string, today: string): Plant {
   };
 }
 
-export const flaggedPlants = (plants: Plant[]): Plant[] => plants.filter((p) => p.flag && p.status !== "done");
+export const flaggedPlants = (plants: Plant[]): Plant[] => plants.filter((p) => (p.flag === "weeding" || p.flag === "replant") && p.status !== "done");
+
+/** Label for a flag value; unknown values (older or hand-edited data) show nothing. */
+export const flagLabel = (f: string | undefined): string => (f === "weeding" || f === "replant" ? FLAG_LABEL[f] : "");

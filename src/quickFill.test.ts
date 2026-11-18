@@ -27,3 +27,11 @@ test("flagged plants lists weeding and replant, skips done and unflagged", () =>
   assert.deepEqual(flaggedPlants(list).map((p) => p.id), ["a", "b"]);
   assert.equal(FLAG_LABEL.weeding, "Needs weeding");
 });
+
+test("unknown flag values are ignored, not crashed on", async () => {
+  const { flagLabel } = await import("./quickFill.ts");
+  assert.equal(flagLabel("weird"), "");
+  assert.equal(flagLabel("replant"), "Needs replanting");
+  const base = quickPlant("Lettuce", "2026-11-18");
+  assert.equal(flaggedPlants([{ ...base, flag: "weird" as never }]).length, 0);
+});

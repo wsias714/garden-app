@@ -8,19 +8,19 @@ import type { Store } from "./store.ts";
 import { uid } from "./store.ts";
 import type { MapItem, Plant, PlantStatus } from "./sync/types.ts";
 import { sizeStep } from "./itemSizing.ts";
-import { addPhoto, sizeUp } from "./plantExtras.ts";
+import { addPhoto, loadPhotos, savePhotos, sizeUp } from "./plantExtras.ts";
 
 /** Shrink a picked photo to a ~480px JPEG data URL so it stays small in the synced data. */
 function shrink(file: File): Promise<string> {
   return new Promise((res, rej) => {
     const img = new Image();
     img.onload = () => {
-      const k = Math.min(1, 480 / Math.max(img.width, img.height));
+      const k = Math.min(1, 400 / Math.max(img.width, img.height));
       const c = document.createElement("canvas");
       c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
       c.getContext("2d")!.drawImage(img, 0, 0, c.width, c.height);
       URL.revokeObjectURL(img.src);
-      res(c.toDataURL("image/jpeg", 0.7));
+      res(c.toDataURL("image/jpeg", 0.6));
     };
     img.onerror = () => rej(new Error("bad image"));
     img.src = URL.createObjectURL(file);
@@ -94,6 +94,10 @@ export function PlantSheet({ plant, store, onClose }: { plant: Plant; store: Sto
   const clim = climateOf(plant);
   const defaults = climateOf({ ...plant, heatPlan: "", rainPlan: "", seasonNotes: "" });
   const [qty, setQty] = useState("");
+  const [photos, setPhotos] = useState(loadPhotos);
+  const [photoMsg, setPhotoMsg] = useState("");
+  const mine = photos[plant.id] ?? [];
+  const putPhotos = (next: ReturnType<typeof loadPhotos>) => { if (savePhotos(next)) { setPhotos(next); setPhotoMsg(""); } else setPhotoMsg("Storage is full, so that photo was not saved. Remove an older photo and try again."); };
   const set = (patch: Partial<Plant>) => store.upsert("plants", { ...plant, ...patch });
   const log = (kind: "water" | "harvest", text: string, n = 0, unit = "") =>
     store.upsert("logs", { id: uid(), date: today(), kind, plantId: plant.id, text, qty: n, unit, updated: 0 });
@@ -119,9 +123,11 @@ export function PlantSheet({ plant, store, onClose }: { plant: Plant; store: Sto
 
       <h3>Photos</h3>
       <div className="chips">
-        {(plant.photos ?? []).map((ph) => <span key={ph.id} className="photo"><img src={ph.data} alt={`${plant.name} ${ph.date}`} /><button className="btn ghost" aria-label="Remove photo" onClick={() => set({ photos: (plant.photos ?? []).filter((x) => x.id !== ph.id) })}>x</button></span>)}
+        {mine.map((ph) => <span key={ph.id} className="photo"><img src={ph.data} alt={`${plant.name} ${ph.date}`} /><button className="btn ghost" aria-label="Remove photo" onClick={() => putPhotos({ ...photos, [plant.id]: mine.filter((x) => x.id !== ph.id) })}>x</button></span>)}
       </div>
-      <label className="btn">Add a photo<input type="file" accept="image/*" hidden onChange={async (e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) store.upsert("plants", addPhoto(plant, await shrink(f), today())); }} /></label>
+      <label className="btn">Add a photo<input type="file" accept="image/*" hidden onChange={async (e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) putPhotos(addPhoto(photos, plant.id, await shrink(f), today())); }} /></label>
+
+      {photoMsg ? <p className="muted small">{photoMsg}</p> : <p className="muted small">Photos stay on this device only.</p>}
 
       <h3>Weather care</h3>
       <p className="muted small">Blank means the app's default for this crop (shown in grey). These drive the watering schedule and the heat, rain, frost and wind alerts.</p>

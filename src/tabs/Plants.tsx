@@ -3,7 +3,7 @@ import { cropByKey } from "../catalog.ts";
 import { pretty } from "../dates.ts";
 import type { Store } from "../store.ts";
 import type { PlantStatus } from "../sync/types.ts";
-import { FLAG_LABEL, flaggedPlants, quickPlant } from "../quickFill.ts";
+import { flagLabel, flaggedPlants, quickPlant } from "../quickFill.ts";
 import { today } from "../dates.ts";
 import { CropPicker, Glyph, PlantSheet, newPlant } from "../ui.tsx";
 
@@ -24,7 +24,7 @@ export function PlantsTab({ store }: { store: Store }) {
         <input className="field" placeholder="Quick add: type a name, planted today" value={quick} onChange={(e) => setQuick(e.target.value)} />
         <button className="chip primary" type="submit">Add</button>
       </form>
-      {flagged.length > 0 && <p className="muted small">Needs attention: {flagged.map((p) => `${p.name} (${FLAG_LABEL[p.flag as "weeding" | "replant"].toLowerCase()})`).join(", ")}</p>}
+      {flagged.length > 0 && <p className="muted small">Needs attention: {flagged.map((p) => `${p.name} (${flagLabel(p.flag).toLowerCase()})`).join(", ")}</p>}
       {plants.length === 0 && <p className="muted">Nothing here yet. Add a plant, then mark it planted to start its watering, feeding and harvest reminders.</p>}
       {ORDER.map((st) => {
         const list = plants.filter((p) => p.status === st);
@@ -38,7 +38,7 @@ export function PlantsTab({ store }: { store: Store }) {
               return (
                 <button key={p.id} className="row" onClick={() => setOpen(p.id)}>
                   <Glyph kind={crop?.kind ?? "veg"} />
-                  <span className="grow">{p.name}<span className="muted small block">{p.flag ? `${FLAG_LABEL[p.flag]} · ` : ""}{bed ? bed.label : "not on a bed"}{p.planted ? ` · planted ${pretty(p.planted)}` : ""}</span></span>
+                  <span className="grow">{p.name}<span className="muted small block">{flagLabel(p.flag) ? `${flagLabel(p.flag)} · ` : ""}{bed ? bed.label : "not on a bed"}{p.planted ? ` · planted ${pretty(p.planted)}` : ""}</span></span>
                 </button>
               );
             })}
