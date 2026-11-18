@@ -4,7 +4,7 @@ A phone PWA (React + Vite + TypeScript) to plan, plant and maintain a small comm
 
 - Plan and design: `docs/PLAN.md`; design mock: `docs/design-mock.html`
 - Run: `npm install`, `npm run dev` (phone on the same wifi: open the printed network URL), `npm run check` (tests, typecheck, build)
-- Status: v0.1, first reviewable build. Not yet built: photos, date scrubber, undo, club calendar dates, drip drawing tools beyond simple lines.
+- Status: v0.1, first reviewable build. Built since: quick-add plants, needs-weeding/replanting flags, planter size-up planning, device-local plant photos (not synced), drag-to-stretch drip lines. Not yet built: synced photos, date scrubber, undo, club calendar dates.
 - The crop catalog (`src/catalog.ts`) is marked unverified: typical coastal Southern California timing, to be checked against UC Master Gardener charts.
 
 No personal data, child names or home address belong in this repo.
