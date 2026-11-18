@@ -8,6 +8,24 @@ import type { Store } from "./store.ts";
 import { uid } from "./store.ts";
 import type { MapItem, Plant, PlantStatus } from "./sync/types.ts";
 import { sizeStep } from "./itemSizing.ts";
+import { addPhoto, sizeUp } from "./plantExtras.ts";
+
+/** Shrink a picked photo to a ~480px JPEG data URL so it stays small in the synced data. */
+function shrink(file: File): Promise<string> {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, 480 / Math.max(img.width, img.height));
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext("2d")!.drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(img.src);
+      res(c.toDataURL("image/jpeg", 0.7));
+    };
+    img.onerror = () => rej(new Error("bad image"));
+    img.src = URL.createObjectURL(file);
+  });
+}
 
 export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   return (
@@ -99,6 +117,12 @@ export function PlantSheet({ plant, store, onClose }: { plant: Plant; store: Sto
       {!plant.planted && <button className="btn" onClick={() => set({ planted: today(), status: "growing" })}>Planted today</button>}
       <label className="lbl">Notes<textarea className="field" rows={3} value={plant.notes} onChange={(e) => set({ notes: e.target.value })} /></label>
 
+      <h3>Photos</h3>
+      <div className="chips">
+        {(plant.photos ?? []).map((ph) => <span key={ph.id} className="photo"><img src={ph.data} alt={`${plant.name} ${ph.date}`} /><button className="btn ghost" aria-label="Remove photo" onClick={() => set({ photos: (plant.photos ?? []).filter((x) => x.id !== ph.id) })}>x</button></span>)}
+      </div>
+      <label className="btn">Add a photo<input type="file" accept="image/*" hidden onChange={async (e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) store.upsert("plants", addPhoto(plant, await shrink(f), today())); }} /></label>
+
       <h3>Weather care</h3>
       <p className="muted small">Blank means the app's default for this crop (shown in grey). These drive the watering schedule and the heat, rain, frost and wind alerts.</p>
       <div className="climate">
@@ -161,6 +185,13 @@ export function ItemSheet({ item, store, onClose }: { item: MapItem; store: Stor
           </div>
         ))}
       </div>
+      {round && (
+        <div className="stepper">
+          <span>{item.replaceW ? `Replacement planned: ${item.replaceW} in` : "No replacement planned"}</span>
+          <button className="btn" onClick={() => set(sizeUp(item))}>Size up +2</button>
+          {item.replaceW ? <button className="btn ghost" onClick={() => set({ replaceW: undefined })}>Clear</button> : null}
+        </div>
+      )}
       <p className="muted small">Drag it on the map to move. Sizes are in inches, {increment} in steps.</p>
       <button className="btn danger" onClick={() => { store.remove("items", item.id); onClose(); }}>Remove</button>
     </Sheet>

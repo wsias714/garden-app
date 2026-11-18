@@ -10,6 +10,7 @@ export interface MapItem {
   y: number;
   w: number;
   h: number;
+  replaceW?: number; // planned replacement size (planter box), inches; missing = none
   updated: number;
 }
 
@@ -24,6 +25,7 @@ export interface Plant {
   planted: string; // YYYY-MM-DD or ""
   status: PlantStatus;
   notes: string;
+  photos?: { id: string; date: string; data: string }[]; // small JPEG data URLs, newest first
   flag?: "" | "weeding" | "replant"; // needs attention
   /* Climate care (optional so older saved plants still load). Empty means "use the catalog default". */
   waterEveryDays?: number; // 0 or missing = automatic from catalog and season

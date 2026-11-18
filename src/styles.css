@@ -101,3 +101,6 @@ h2 { margin: 0; font-size: 26px; }
 .path { fill: #efe6d6; stroke: #cdbfa8; stroke-width: 0.5; stroke-dasharray: 1 1.5; }
 .pot { fill: none; stroke: var(--rose); stroke-width: 0.4; }
 .trellis { stroke: #8a6b4f; stroke-width: 1.6; stroke-dasharray: 4 1 1 1; }
+.photo { position: relative; display: inline-block; }
+.photo img { width: 88px; height: 88px; object-fit: cover; border-radius: 8px; display: block; }
+.photo button { position: absolute; top: 2px; right: 2px; min-height: 24px; padding: 0 8px; background: rgba(255,255,255,0.85); }
