@@ -7,7 +7,7 @@ import type { ItemKind, MapItem, Plant } from "../sync/types.ts";
 import { CropPicker, Glyph, ItemSheet, PlantSheet, newPlant } from "../ui.tsx";
 import { rules } from "../engine.ts";
 import { bedsUnder } from "../plotOrder.ts";
-import { dripSize } from "../plot.ts";
+import { dripEnd, dripSize } from "../plot.ts";
 
 const SNAP = 6;
 const snap = (n: number) => Math.round(n / SNAP) * SNAP;
@@ -123,7 +123,7 @@ export function PlotTab({ store, plain }: { store: Store; plain: boolean }) {
                 const w = resize?.id === it.id ? resize.w : it.w;
                 const h = resize?.id === it.id ? resize.h : it.h;
                 const endY = y + Math.max(0, h - 2);
-                return <g key={it.id} {...common}><line x1={x} y1={y} x2={x + w} y2={endY} className="drip" /><line x1={x} y1={y} x2={x + w} y2={endY} className="hit" />{on && <g onPointerDown={(e) => { e.stopPropagation(); svg.current!.setPointerCapture(e.pointerId); setResize({ id: it.id, w: it.w, h: it.h }); }}><circle cx={x + w} cy={endY} r="12" fill="transparent" pointerEvents="all" /><circle cx={x + w} cy={endY} r="3" className="drip-handle" pointerEvents="none" /></g>}</g>;
+                return <g key={it.id} {...common}><line x1={x} y1={y} x2={x + w} y2={endY} className="drip" /><line x1={x} y1={y} x2={x + w} y2={endY} className="hit" /></g>;
               }
               if (it.kind === "path") return <g key={it.id} {...common}><rect x={x} y={y} width={it.w} height={it.h} className="path" /><text x={x + 2} y={y + 6} className="blabel">{it.label}</text></g>;
               if (it.kind === "container") return <g key={it.id} {...common}><circle cx={x + it.w / 2} cy={y + it.w / 2} r={it.w / 2} className="bed" /><circle cx={x + it.w / 2} cy={y + it.w / 2} r={it.w / 2 - 2} className="pot" /><text x={x + it.w / 2} y={y + it.w + 5} textAnchor="middle" className="blabel">{it.label}</text></g>;
@@ -144,6 +144,13 @@ export function PlotTab({ store, plain }: { store: Store; plain: boolean }) {
               );
             })}
           </g>
+          {selItem?.kind === "drip" && (() => {
+            const w = resize?.id === selItem.id ? resize.w : selItem.w;
+            const h = resize?.id === selItem.id ? resize.h : selItem.h;
+            const { x, y } = at(selItem);
+            const end = dripEnd(x, y, w, h);
+            return <g onPointerDown={(e) => { e.stopPropagation(); svg.current!.setPointerCapture(e.pointerId); setResize({ id: selItem.id, w: selItem.w, h: selItem.h }); }}><circle cx={end.x} cy={end.y} r="22" fill="transparent" pointerEvents="all" /><circle cx={end.x} cy={end.y} r="6" className="drip-handle" pointerEvents="none" /></g>;
+          })()}
           <text x={W / 2} y="-3" textAnchor="middle" className="north">N ↑</text>
           <text x={W / 2} y={H + 8} textAnchor="middle" className="north">gate</text>
         </svg>
