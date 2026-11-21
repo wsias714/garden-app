@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { dripEnd, dripSize } from "./plot.ts";
+import { dripEnd, dripSize, itemEditsInline } from "./plot.ts";
 
 test("drip endpoint stretching snaps both dimensions and stays in the plot", () => {
   assert.deepEqual(dripSize(71, 29, 10, 10, 100, 50), { w: 60, h: 20 });
@@ -15,4 +15,9 @@ test("drip stays inside the plot even with under 6 in of room", () => {
 test("drip handle sits at the far end of the line, matching the drawn endpoint", () => {
   assert.deepEqual(dripEnd(12, 30, 60, 2), { x: 72, y: 30 });
   assert.deepEqual(dripEnd(12, 30, 60, 26), { x: 72, y: 54 });
+});
+
+test("a drip line's panel is inline so the full-screen scrim cannot cover its stretch handle", () => {
+  assert.equal(itemEditsInline("drip"), true);
+  for (const kind of ["bed", "tree", "mint", "path", "container", "trellis", "label"]) assert.equal(itemEditsInline(kind), false);
 });
