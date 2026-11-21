@@ -27,18 +27,18 @@ function shrink(file: File): Promise<string> {
   });
 }
 
-export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
-  return (
-    <div className="scrim" onClick={onClose}>
-      <div className="sheet" onClick={(e) => e.stopPropagation()}>
-        <div className="sheet-head">
-          <h2>{title}</h2>
-          <button className="btn ghost" onClick={onClose} aria-label="Close">Close</button>
-        </div>
-        {children}
+/** `inline` renders the panel in page flow with no full-screen scrim, so whatever is above it stays touchable. */
+export function Sheet({ title, onClose, children, inline }: { title: string; onClose: () => void; children: ReactNode; inline?: boolean }) {
+  const panel = (
+    <div className={inline ? "sheet inline" : "sheet"} onClick={inline ? undefined : (e) => e.stopPropagation()}>
+      <div className="sheet-head">
+        <h2>{title}</h2>
+        <button className="btn ghost" onClick={onClose} aria-label="Close">Close</button>
       </div>
+      {children}
     </div>
   );
+  return inline ? panel : <div className="scrim" onClick={onClose}>{panel}</div>;
 }
 
 /** Single-weight botanical line glyphs, one per crop kind. */
@@ -173,14 +173,14 @@ export function PlantSheet({ plant, store, onClose }: { plant: Plant; store: Sto
   );
 }
 
-export function ItemSheet({ item, store, onClose }: { item: MapItem; store: Store; onClose: () => void }) {
+export function ItemSheet({ item, store, onClose, inline }: { item: MapItem; store: Store; onClose: () => void; inline?: boolean }) {
   const set = (patch: Partial<MapItem>) => store.upsert("items", { ...item, ...patch });
   const line = item.kind === "drip" || item.kind === "trellis";
   const round = item.kind === "tree" || item.kind === "container";
   const increment = sizeStep(item.kind);
   const step = (k: "w" | "h", d: number) => set({ [k]: Math.max(line && k === "h" ? 2 : increment, item[k] + d) });
   return (
-    <Sheet title={item.label || item.kind} onClose={onClose}>
+    <Sheet title={item.label || item.kind} onClose={onClose} inline={inline}>
       <label className="lbl">Label<input className="field" value={item.label} onChange={(e) => set({ label: e.target.value })} /></label>
       <div className="steppers">
         {(round || item.kind === "drip" ? (["w"] as const) : (["w", "h"] as const)).map((k) => (

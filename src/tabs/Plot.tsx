@@ -7,7 +7,7 @@ import type { ItemKind, MapItem, Plant } from "../sync/types.ts";
 import { CropPicker, Glyph, ItemSheet, PlantSheet, newPlant } from "../ui.tsx";
 import { rules } from "../engine.ts";
 import { bedsUnder } from "../plotOrder.ts";
-import { dripEnd, dripSize } from "../plot.ts";
+import { dripEnd, dripSize, itemEditsInline } from "../plot.ts";
 
 const SNAP = 6;
 const snap = (n: number) => Math.round(n / SNAP) * SNAP;
@@ -155,13 +155,14 @@ export function PlotTab({ store, plain }: { store: Store; plain: boolean }) {
           <text x={W / 2} y={H + 8} textAnchor="middle" className="north">gate</text>
         </svg>
       </div>
+      {selItem && itemEditsInline(selItem.kind) && <ItemSheet key={selItem.id} item={selItem} store={store} onClose={() => setSel(null)} inline />}
       <p className="muted small">{`Plot ${W / 12} x ${H / 12} ft (change in Settings). Drag to move, tap to edit size and label; everything snaps to 6 inches. Drag a selected drip line's end to stretch it, or use + Drip line to add one.`}</p>
       <div className="chips">
         {ADD.map((a) => <button key={a.kind} className="chip" onClick={() => addItem(a)}>+ {a.label}</button>)}
         <button className="chip primary" onClick={() => setPicker(true)}>+ Plant</button>
       </div>
       {picker && <CropPicker onClose={() => setPicker(false)} onPick={(c) => { const p = newPlant(c); store.upsert("plants", p); setPicker(false); setSel({ type: "plant", id: p.id }); }} />}
-      {selItem && <ItemSheet key={selItem.id} item={selItem} store={store} onClose={() => setSel(null)} />}
+      {selItem && !itemEditsInline(selItem.kind) && <ItemSheet key={selItem.id} item={selItem} store={store} onClose={() => setSel(null)} />}
       {selPlant && <PlantSheet key={selPlant.id} plant={selPlant} store={store} onClose={() => setSel(null)} />}
     </div>
   );

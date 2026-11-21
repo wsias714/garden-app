@@ -68,6 +68,7 @@ h2 { margin: 0; font-size: 26px; }
 
 .scrim { position: fixed; inset: 0; background: rgba(74,64,65,0.35); z-index: 30; display: flex; align-items: flex-end; justify-content: center; }
 .sheet { background: var(--paper); width: 100%; max-width: 560px; max-height: 88vh; overflow: auto; border-radius: 18px 18px 0 0; padding: 14px 16px calc(20px + env(safe-area-inset-bottom)); }
+.sheet.inline { margin-top: 10px; max-height: none; border-radius: 14px; border: 1px solid var(--line); }
 .sheet-head { display: flex; justify-content: space-between; align-items: center; }
 .toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 8px 16px; border-radius: 18px; z-index: 40; font-size: 14px; }
 
