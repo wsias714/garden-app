@@ -20,25 +20,6 @@ test("planned or unplanted plants make no care tasks", () => {
   assert.equal(generateTasks(data({ ...lettuce(""), status: "planned" }), null, "2026-11-10", 7).filter((t) => t.plantId).length, 0);
 });
 
-test("water interval is season-adjusted and recurs", () => {
-  const t = generateTasks(data(lettuce("2026-11-08")), null, "2026-11-10", 14).filter((x) => x.kind === "water");
-  assert.ok(t.length >= 2);
-  assert.equal(t[0].date, "2026-11-13");
-});
-
-test("a long-missed plant shows one catch-up task and no future copies", () => {
-  const t = generateTasks(data(lettuce("2026-09-01")), null, "2026-11-10", 7).filter((x) => x.kind === "water");
-  assert.equal(t.length, 1);
-  assert.equal(t[0].overdue, true);
-});
-
-test("a 'Watered' journal entry counts as watering", () => {
-  const d = data(lettuce("2026-09-01"));
-  d.logs = [{ id: "l1", date: "2026-11-10", kind: "water", plantId: "p1", text: "Watered", qty: 0, unit: "", updated: 1 }];
-  const t = generateTasks(d, null, "2026-11-10", 7).filter((x) => x.kind === "water");
-  assert.ok(t.length > 0 && t.every((x) => !x.overdue && x.date > "2026-11-10"));
-});
-
 test("harvesting plants get recurring pick reminders; an open harvest window stays visible", () => {
   const pick = generateTasks(data(lettuce("2026-09-01", { status: "harvesting" })), null, "2026-11-10", 7).filter((x) => x.id.startsWith("pick:"));
   assert.ok(pick.length >= 1);
@@ -46,20 +27,15 @@ test("harvesting plants get recurring pick reminders; an open harvest window sta
   assert.equal(late.overdue, true);
 });
 
-test("completing a water task moves the next one and stays visible today", () => {
-  const d = data(lettuce("2026-11-01"));
-  const first = generateTasks(d, null, "2026-11-10", 7).find((x) => x.kind === "water")!;
-  const d2 = { ...d, done: [{ id: first.id, at: "2026-11-10", state: "done" as const, title: first.title, updated: 1 }] };
-  const all = generateTasks(d2, null, "2026-11-10", 7);
-  assert.ok(all.filter((x) => x.kind === "water" && !x.done).every((x) => x.date > "2026-11-10"));
-  assert.equal(all.filter((x) => x.done).length, 1);
-});
-
 test("a plant's own interval and drip setting override the default", () => {
   assert.equal(waterInterval(lettuce("2026-11-01", { waterEveryDays: 9 }), cropByKey("lettuce"), 11), 9);
   assert.ok(waterInterval(lettuce("2026-11-01", { sun: "shade" }), cropByKey("lettuce"), 11) > waterInterval(lettuce("2026-11-01"), cropByKey("lettuce"), 11));
-  const t = generateTasks(data(lettuce("2026-11-01", { onDrip: true })), null, "2026-11-10", 14);
-  assert.equal(t.filter((x) => x.kind === "water").length, 0);
+});
+
+test("no per-plant watering tasks are generated, even for long-unwatered plants", () => {
+  for (const pl of [lettuce("2026-11-08"), lettuce("2026-09-01"), lettuce("2026-11-01", { onDrip: true })]) {
+    assert.equal(generateTasks(data(pl), null, "2026-11-10", 14).filter((x) => x.kind === "water").length, 0);
+  }
 });
 
 test("climate: catalog defaults, plant overrides win", () => {
@@ -71,24 +47,6 @@ test("climate: catalog defaults, plant overrides win", () => {
 
 test("harvest window opens at the catalog's first day", () => {
   assert.equal(generateTasks(data(lettuce("2026-11-01")), null, "2026-11-10", 60).find((x) => x.kind === "harvest")!.date, "2026-12-16");
-});
-
-test("rain and heat advice combine in one nudge", () => {
-  const d = data(lettuce("2026-11-08"));
-  const f = week("2026-11-10", { 3: { rainMm: 9, rainProb: 80, tMaxC: 33 } });
-  const t = generateTasks(d, f, "2026-11-10", 7).find((x) => x.kind === "water")!;
-  assert.match(t.nudge, /chance/);
-  assert.match(t.nudge, /°F/);
-});
-
-test("rain in the forecast nudges a water task, never skips it", () => {
-  const d = data(lettuce("2026-11-08"));
-  const due = generateTasks(d, null, "2026-11-10", 7).find((x) => x.kind === "water")!.date;
-  const f = week("2026-11-10", { [3]: { rainMm: 9, rainProb: 80 } }); // 11-13 = due date
-  assert.equal(due, "2026-11-13");
-  const t = generateTasks(d, f, "2026-11-10", 7).find((x) => x.kind === "water")!;
-  assert.match(t.nudge, /chance/);
-  assert.equal(t.done, false);
 });
 
 test("weather alerts: heat names tender plants, frost names frost-tender, rain, wind, week", () => {
