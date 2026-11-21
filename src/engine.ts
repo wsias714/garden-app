@@ -135,7 +135,8 @@ function plantTasks(p: Plant, d: GardenData, f: Forecast | null, today: string, 
       due = addDays(due, every(monthOf(due)));
     }
   };
-  if (!p.onDrip) emit("water", `Water ${p.name}`, (m) => waterInterval(p, crop, m), waterInterval(p, crop, monthOf(p.planted)));
+  // No per-plant watering tasks: the drip system waters and the garden is visited weekly (Wade, 2026-11-19).
+  // Guidance is about drip timer changes (see seasonal "Adjust the drip timer" and weather alerts).
   if (crop && !crop.perennial) emit("feed", `Feed ${p.name}`, () => 28, 21);
   if (crop?.days && p.status === "growing") {
     // One-off: the window opens. Stays visible until ticked (or the plant moves to "harvesting").
