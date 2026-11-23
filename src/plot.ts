@@ -1,18 +1,25 @@
 const SNAP = 6;
 
 export function dripSize(endX: number, endY: number, startX: number, startY: number,
-                         availableWidth: number, availableHeight: number): { w: number; h: number } {
-  const snappedWidth = Math.round((endX - startX) / SNAP) * SNAP;
-  const snappedDrop = Math.round((endY - startY) / SNAP) * SNAP;
-  return {
-    w: Math.max(0, Math.min(availableWidth, Math.max(SNAP, snappedWidth))),
-    h: Math.max(0, Math.min(availableHeight, Math.max(2, snappedDrop + 2))),
+                         plotWidth: number, plotHeight: number): { w: number; h: number } {
+  const delta = (end: number, start: number, max: number) => {
+    const snapped = Math.round((end - start) / SNAP) * SNAP;
+    const lower = -start;
+    const upper = max - start;
+    const bounded = Math.max(lower, Math.min(upper, snapped));
+    if (snapped === 0) return bounded;
+    if (Math.abs(bounded) < SNAP) return bounded;
+    if (bounded < 0) return Math.min(-SNAP, bounded);
+    return Math.max(SNAP, bounded);
   };
+  const dx = delta(endX, startX, plotWidth);
+  const dy = delta(endY, startY, plotHeight);
+  return { w: dx, h: dy + 2 };
 }
 
 /** Where a drip line's stretch handle sits: the line's far end. */
 export function dripEnd(x: number, y: number, w: number, h: number): { x: number; y: number } {
-  return { x: x + w, y: y + Math.max(0, h - 2) };
+  return { x: x + w, y: y + h - 2 };
 }
 
 /**

@@ -55,7 +55,7 @@ export function PlotTab({ store, plain }: { store: Store; plain: boolean }) {
       const it = items.find((i) => i.id === resize.id);
       if (it) {
         const p = pt(e);
-        setResize({ id: it.id, ...dripSize(p.x, p.y, it.x, it.y, W - it.x, H - it.y) });
+        setResize({ id: it.id, ...dripSize(p.x, p.y, it.x, it.y, W, H) });
       }
       return;
     }
@@ -122,7 +122,7 @@ export function PlotTab({ store, plain }: { store: Store; plain: boolean }) {
               if (it.kind === "drip") {
                 const w = resize?.id === it.id ? resize.w : it.w;
                 const h = resize?.id === it.id ? resize.h : it.h;
-                const endY = y + Math.max(0, h - 2);
+                const endY = y + h - 2;
                 return <g key={it.id} {...common}><line x1={x} y1={y} x2={x + w} y2={endY} className="drip" /><line x1={x} y1={y} x2={x + w} y2={endY} className="hit" /></g>;
               }
               if (it.kind === "path") return <g key={it.id} {...common}><rect x={x} y={y} width={it.w} height={it.h} className="path" /><text x={x + 2} y={y + 6} className="blabel">{it.label}</text></g>;
