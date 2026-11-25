@@ -3,6 +3,7 @@ import { MONTHS, pretty, today as todayStr } from "../dates.ts";
 import { cToF, generateTasks, mmToIn, sowNow, weatherAlerts } from "../engine.ts";
 import type { Forecast, Task } from "../engine.ts";
 import { PROJECTS } from "../seed.ts";
+import { USER_PREFIX, newStep, projectKeys, projectName } from "../projects.ts";
 import type { Store } from "../store.ts";
 import { fetchForecast } from "../weather.ts";
 import { Glyph, newPlant } from "../ui.tsx";
@@ -13,6 +14,8 @@ export function TodayTab({ store }: { store: Store }) {
   const [wx, setWx] = useState<Forecast | null>(null);
   const [wxState, setWxState] = useState<"loading" | "ok" | "none">("loading");
   const [openProj, setOpenProj] = useState("");
+  const [draft, setDraft] = useState("");
+  const [newList, setNewList] = useState("");
   const today = todayStr();
   const month = new Date().getMonth() + 1;
 
@@ -57,7 +60,19 @@ export function TodayTab({ store }: { store: Store }) {
     </div>
   );
 
-  const nextSteps = Object.keys(PROJECTS).map((k) => ({ key: k, steps: data.steps.filter((s) => s.project === k).sort((a, b) => a.order - b.order) }));
+  const nextSteps = projectKeys(data.steps, PROJECTS).map((k) => ({ key: k, steps: data.steps.filter((s) => s.project === k).sort((a, b) => a.order - b.order) }));
+  const addStep = (project: string, title: string) => {
+    if (!title.trim()) return;
+    store.upsert("steps", newStep(project, title, data.steps, `step-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`));
+  };
+  const addList = () => {
+    const name = newList.trim();
+    if (!name) return;
+    const key = USER_PREFIX + name;
+    setNewList("");
+    setOpenProj(key);
+    addStep(key, "First task");
+  };
 
   return (
     <div className="page">
@@ -107,19 +122,31 @@ export function TodayTab({ store }: { store: Store }) {
           return (
             <div className="card" key={key}>
               <button className="proj-head" onClick={() => setOpenProj(openProj === key ? "" : key)}>
-                <b>{PROJECTS[key]}</b>
+                <b>{projectName(key, PROJECTS)}</b>
                 <span className="muted small">{steps.length - left.length} of {steps.length} done · {openProj === key ? "hide" : "all steps"}</span>
               </button>
               {shown.map((s) => (
                 <div className={"task" + (s.done ? " done" : "")} key={s.id}>
                   <button className="check" onClick={() => store.upsert("steps", { ...s, done: !s.done, doneAt: s.done ? "" : today })}>{s.done ? "✓" : ""}</button>
                   <div className="grow">{s.title}{s.note && <div className="muted small">{s.note}</div>}</div>
+                  {openProj === key && <button className="step-del" aria-label={`Delete task: ${s.title}`} onClick={() => { if (window.confirm(`Delete this task?\n${s.title}`)) store.remove("steps", s.id); }}>✕</button>}
                 </div>
               ))}
-              {left.length === 0 && <div className="muted small">All done.</div>}
+              {left.length === 0 && steps.length > 0 && <div className="muted small">All done.</div>}
+              {steps.length === 0 && <div className="muted small">No tasks yet.</div>}
+              {openProj === key && (
+                <form className="step-add" onSubmit={(e) => { e.preventDefault(); addStep(key, draft); setDraft(""); }}>
+                  <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Add a task" aria-label="New task" />
+                  <button type="submit" disabled={!draft.trim()}>Add</button>
+                </form>
+              )}
             </div>
           );
         })}
+        <form className="step-add" onSubmit={(e) => { e.preventDefault(); addList(); }}>
+          <input value={newList} onChange={(e) => setNewList(e.target.value)} placeholder="New to-do list (name)" aria-label="New list name" />
+          <button type="submit" disabled={!newList.trim()}>New list</button>
+        </form>
       </section>
 
       <section>
