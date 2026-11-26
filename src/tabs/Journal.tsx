@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { pretty, today } from "../dates.ts";
+import { pretty, today, validDate } from "../dates.ts";
 import type { LogEntry } from "../sync/types.ts";
 import type { Store } from "../store.ts";
 import { uid } from "../store.ts";
@@ -12,6 +12,7 @@ export function JournalTab({ store }: { store: Store }) {
   const [text, setText] = useState("");
   const [categories, setCategories] = useState("");
   const [picture, setPicture] = useState("");
+  const [date, setDate] = useState("");
   const name = (id: string) => plants.find((p) => p.id === id)?.name ?? "";
   const sorted = [...logs].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : a.id < b.id ? 1 : -1));
 
@@ -28,10 +29,11 @@ export function JournalTab({ store }: { store: Store }) {
     setText(note?.text ?? "");
     setCategories(note?.categories?.join(", ") ?? "");
     setPicture(note?.picture ?? "");
+    setDate(note?.date ?? today());
   };
   const saveNote = () => {
     if (!editing || !text.trim()) return;
-    const note: Note = { ...editing, text: text.trim(), categories: categories.split(",").map((x) => x.trim()).filter(Boolean), picture };
+    const note: Note = { ...editing, date: validDate(date) ? date : editing.date, text: text.trim(), categories: categories.split(",").map((x) => x.trim()).filter(Boolean), picture };
     store.upsert("logs", note);
     setEditing(null);
   };
@@ -67,7 +69,8 @@ export function JournalTab({ store }: { store: Store }) {
       {editing && <div className="scrim" onClick={() => setEditing(null)}><div className="sheet" role="dialog" aria-modal="true" aria-label="Journal note editor" onClick={(e) => e.stopPropagation()}>
         <div className="sheet-head"><h2>{logs.some((l) => l.id === editing.id) ? "Edit note" : "New note"}</h2><button className="btn ghost" aria-label="Close editor" onClick={() => setEditing(null)}>×</button></div>
         <label className="lbl">Note<textarea className="field" rows={5} value={text} onChange={(e) => setText(e.target.value)} autoFocus /></label>
-        <label className="lbl">Categories <input className="field" placeholder="e.g. pests, soil, planting" value={categories} onChange={(e) => setCategories(e.target.value)} /></label>
+        <label className="lbl">Date <input className="field" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></label>
+        <label className="lbl">Categories<input className="field" placeholder="e.g. pests, soil, planting" value={categories} onChange={(e) => setCategories(e.target.value)} /></label>
         <label className="lbl">Picture <input className="field" type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => setPicture(typeof reader.result === "string" ? reader.result : ""); reader.readAsDataURL(file); }} /></label>
         {picture && <div><img className="journal-picture" src={picture} alt="Note attachment preview" /><button className="btn ghost" onClick={() => setPicture("")}>Remove picture</button></div>}
         <div className="btnrow"><button className="btn primary" disabled={!text.trim()} onClick={saveNote}>Save note</button><button className="btn" onClick={() => setEditing(null)}>Cancel</button></div>
