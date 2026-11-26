@@ -12,7 +12,8 @@ export const addDays = (s: string, n: number) => {
 };
 export const diffDays = (a: string, b: string) => Math.round((parse(a).getTime() - parse(b).getTime()) / 86_400_000);
 export const monthOf = (s: string) => parse(s).getMonth() + 1;
-export const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+export const validDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s) && fmt(parse(s)) === s;
+export const MONTHS =["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 export const pretty = (s: string) => {
   const d = parse(s);
   return `${MONTHS[d.getMonth()]} ${d.getDate()}`;
